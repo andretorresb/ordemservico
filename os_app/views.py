@@ -13,6 +13,22 @@ IDCOL = 'IDORDEM'
 EMPCOL = 'EMPRESA'
 
 
+def _is_blob_column(meta_entry: dict) -> bool:
+    """
+    Heurística para detectar se uma coluna é BLOB a partir do metadata retornado
+    por _get_field_metadata. meta_entry é o dicionário para a coluna.
+    """
+    if not meta_entry:
+        return False
+    t = meta_entry.get('type')
+    if t and str(t).upper() == 'BLOB':
+        return True
+    # se existir 'subtype' no metadata, quase sempre indica BLOB/text blob
+    if 'subtype' in meta_entry:
+        return True
+    return False
+
+
 def abrir_os(request):
     """Form público para abrir uma ordem — grava no Firebird."""
     if request.method == 'POST':
@@ -41,9 +57,31 @@ def abrir_os(request):
                 'ENTRADA': form.cleaned_data.get('entrada') if form.cleaned_data.get('entrada') not in (None, '') else None,
             }
 
-            # inserir no Firebird (inserir_ordem fará encode de BLOB binário quando necessário)
+            # tentar obter metadata e converter strings -> bytes para colunas BLOB
             try:
-                new_id = inserir_ordem(TABLE_OS, data, empresa=EMPRESA_DEFAULT)
+                meta = _get_field_metadata(TABLE_OS) or {}
+                data_encoded = {}
+                for col_name, val in data.items():
+                    col_upper = col_name.upper()
+                    entry = meta.get(col_upper, {})
+                    if val is None:
+                        data_encoded[col_name] = None
+                        continue
+                    # detecta BLOB
+                    if _is_blob_column(entry) and isinstance(val, str):
+                        try:
+                            data_encoded[col_name] = val.encode(CHARSET)
+                        except Exception:
+                            data_encoded[col_name] = val.encode(CHARSET, errors='replace')
+                    else:
+                        data_encoded[col_name] = val
+            except Exception:
+                # se metadata falhar, usa os dados originais (fallback)
+                data_encoded = data
+
+            # inserir no Firebird
+            try:
+                new_id = inserir_ordem(TABLE_OS, data_encoded, empresa=EMPRESA_DEFAULT)
             except Exception as e:
                 # reportar erro no form
                 form.add_error(None, f"Erro ao salvar no Firebird: {e}")
@@ -116,7 +154,7 @@ def editar_os(request, pk):
                 return render(request, 'os_app/editar_os.html', {'form': form, 'os': item})
 
             # metadata para detectar BLOB subtypes
-            meta = _get_field_metadata(TABLE_OS)
+            meta = _get_field_metadata(TABLE_OS) or {}
 
             set_parts = []
             params = []
@@ -125,20 +163,26 @@ def editar_os(request, pk):
                 if col_upper in (IDCOL.upper(), EMPCOL.upper()):
                     continue
 
-                # se coluna BLOB (subtype != 0 indica texto/blob) — tratar strings -> bytes conforme seu DB
-                subtype = meta.get(col_upper, {}).get('subtype', 0)
-                # No seu código anterior você tratava subtype==0 como texto; aqui vamos:
-                # - se subtype == 1 or >0 -> é blob textual (ou texto) e deve ser enviado como bytes conforme CHARSET
-                if isinstance(val, str):
-                    if subtype and subtype != 0:
+                # detectar se coluna é BLOB via metadata
+                entry = meta.get(col_upper, {})
+                is_blob = _is_blob_column(entry)
+
+                # tratar valores conforme tipo
+                if val is None:
+                    param_val = None
+                else:
+                    # Se for BLOB e for string -> encode para bytes
+                    if is_blob and isinstance(val, str):
                         try:
-                            val = val.encode(CHARSET)
+                            param_val = val.encode(CHARSET)
                         except Exception:
-                            val = val.encode(CHARSET, errors='replace')
-                    # para campos que são DATETIME/DATE/TIME, o form já retorna objetos adequados
+                            param_val = val.encode(CHARSET, errors='replace')
+                    else:
+                        # se não for BLOB (ou já é bytes), passa direto
+                        param_val = val
 
                 set_parts.append(f"{col_upper} = ?")
-                params.append(val)
+                params.append(param_val)
 
             if not set_parts:
                 form.add_error(None, "Nenhuma coluna válida para atualizar.")
