@@ -1,53 +1,33 @@
+{% load static %}
 <!doctype html>
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>{% block title %}Ordem de Serviço - {{ title|default:"Sistema" }}{% endblock %}</title>
-  <style>
-    body{font-family:Inter,Segoe UI,Arial,Helvetica,sans-serif;margin:18px;background:#f6f7fb;}
-    header nav a{margin-right:12px;text-decoration:none;color:#0a58ca;}
-    .container{max-width:980px;margin:20px auto;}
-    .card{padding:14px;border:1px solid #eee;border-radius:8px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.03)}
-    form p{margin:8px 0}
-    label{font-weight:600}
-    .errors{background:#ffecec;border:1px solid #f5c2c2;padding:8px;border-radius:6px;color:#9a1f1f;margin-bottom:12px}
-    .messages {margin-bottom:12px}
-    .message {padding:8px;border-radius:6px;margin-bottom:6px}
-    .message.info{background:#e7f3fe;border:1px solid #cfe9ff;color:#0a58ca}
-    .message.success{background:#e6ffed;border:1px solid #bff0c6;color:#1f7f3a}
-    .message.warning{background:#fff7e6;border:1px solid #ffe5a8;color:#8a5f00}
-    .message.error{background:#ffecec;border:1px solid #f5c2c2;color:#9a1f1f}
-    table{width:100%;border-collapse:collapse;margin-top:10px}
-    th,td{padding:8px;border-bottom:1px solid #eee;text-align:left}
-    .actions a, .actions form{display:inline-block;margin-right:6px}
-    .btn{display:inline-block;padding:8px 12px;border-radius:6px;background:#0a58ca;color:#fff;text-decoration:none}
-    .btn-danger{background:#d9534f;color:#fff;border:0;padding:8px 10px;border-radius:6px}
-    .muted{color:#666;font-size:0.9em}
-    header{margin-bottom:12px}
-    header .top {display:flex;justify-content:space-between;align-items:center}
-    header .right {font-size:0.9em;color:#666}
-    /* responsividade simples */
-    @media (max-width:700px){
-      .container{margin:8px}
-      th,td{padding:6px}
-      .btn{padding:6px 8px}
-    }
-  </style>
+
+  <!-- main stylesheet -->
+  <link rel="stylesheet" href="{% static 'os_app/css/styles.css' %}">
 </head>
 <body>
-  <header>
-    <div class="top container">
-      <nav>
-        <a href="{% url 'os_app:listar_os' %}">Painel</a> |
-        <a href="{% url 'os_app:abrir_os' %}">Abrir OS</a> |
+  <header class="site-header">
+    <div class="header-inner container">
+      <div class="logo">
+        <a href="{% url 'os_app:listar_os' %}">Ordem de Serviço</a>
+      </div>
+
+      <nav class="main-nav">
+        <a href="{% url 'os_app:listar_os' %}">Painel</a>
+        <a href="{% url 'os_app:abrir_os' %}">Abrir OS</a>
         <a href="/admin/">Admin</a>
       </nav>
-      <div class="right">
+
+      <div class="user-area">
         {% if request.user.is_authenticated %}
-          Olá, {{ request.user.get_short_name|default:request.user.username }} — <a href="/accounts/logout/">Sair</a>
+          Olá, <strong>{{ request.user.get_short_name|default:request.user.username }}</strong>
+          <a class="link-logout" href="/accounts/logout/">Sair</a>
         {% else %}
-          <a href="/accounts/login/">Entrar</a>
+          <a class="link-login" href="/accounts/login/">Entrar</a>
         {% endif %}
       </div>
     </div>
@@ -58,10 +38,11 @@
 
       {# Django messages (ex: success / error after POST) #}
       {% if messages %}
-        <div class="messages">
+        <div class="messages" aria-live="polite">
           {% for msg in messages %}
             <div class="message {% if 'success' in msg.tags %}success{% elif 'error' in msg.tags or 'danger' in msg.tags %}error{% elif 'warning' in msg.tags %}warning{% else %}info{% endif %}">
-              {{ msg }}
+              <button type="button" class="msg-close" aria-label="Fechar">&times;</button>
+              <div class="msg-content">{{ msg|safe }}</div>
             </div>
           {% endfor %}
         </div>
@@ -70,7 +51,11 @@
       {% block content %}{% endblock %}
     </div>
 
-    <p class="muted">Desenvolvimento — DEBUG=True</p>
+    <footer class="muted small">
+      Desenvolvimento — DEBUG=True
+    </footer>
   </main>
+
+  <script src="{% static 'os_app/js/scripts.js' %}"></script>
 </body>
 </html>

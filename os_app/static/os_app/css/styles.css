@@ -1,0 +1,80 @@
+/* styles.css - visual clean & responsive */
+:root{
+  --bg:#f6f8fb;
+  --card:#ffffff;
+  --accent:#0a58ca;
+  --accent-2:#0f5bb8;
+  --danger:#d9534f;
+  --muted:#6b7280;
+  --radius:10px;
+  --shadow: 0 6px 18px rgba(17,24,39,0.06);
+  --max-width:980px;
+  --gap:16px;
+  --text:#111827;
+  --success:#1f7f3a;
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  font-family: Inter, "Segoe UI", Arial, Helvetica, sans-serif;
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+}
+
+.container{max-width:var(--max-width);margin:22px auto;padding:0 14px}
+
+/* header */
+.site-header{background:#fff;border-bottom:1px solid rgba(15,23,42,0.04);box-shadow: 0 1px 0 rgba(255,255,255,0.5)}
+.header-inner{display:flex;align-items:center;gap:12px;padding:12px 0}
+.logo a{font-weight:700;color:var(--accent);text-decoration:none;font-size:1.1rem}
+.main-nav{margin-left:12px;display:flex;gap:10px;flex:1}
+.main-nav a{color:var(--accent-2);text-decoration:none;padding:6px 10px;border-radius:6px}
+.main-nav a:hover{background:rgba(10,88,202,0.06)}
+.user-area{font-size:0.95rem;color:var(--muted)}
+.user-area a{margin-left:10px;color:var(--accent);text-decoration:none}
+
+/* card */
+.card{background:var(--card);padding:22px;border-radius:var(--radius);box-shadow:var(--shadow);}
+
+/* messages */
+.messages{margin-bottom:12px;display:flex;flex-direction:column;gap:10px}
+.message{position:relative;padding:12px 14px;border-radius:8px;border:1px solid rgba(0,0,0,0.04);display:flex;align-items:flex-start;gap:12px}
+.message .msg-close{position:absolute;right:8px;top:6px;background:transparent;border:0;font-size:18px;cursor:pointer;color:#444}
+.message .msg-content{flex:1}
+.message.info{background:#eef6ff;border-color:#cfe9ff;color:var(--accent)}
+.message.success{background:#f0fff4;border-color:#bff0c6;color:var(--success)}
+.message.warning{background:#fffaf0;border-color:#ffe5a8;color:#8a5f00}
+.message.error{background:#fff0f0;border-color:#f5c2c2;color:var(--danger)}
+
+/* form */
+form p{margin:10px 0}
+label{display:block;margin-bottom:6px;font-weight:600;color:#111827}
+input[type="text"], input[type="number"], input[type="date"], input[type="time"], input[type="email"], textarea, select{
+  width:100%;padding:8px 10px;border-radius:6px;border:1px solid #e6e9ee;font-size:14px;background:#fff;color:var(--text)
+}
+textarea{min-height:110px;resize:vertical}
+.errors{background:#fff0f0;border:1px solid #f5c2c2;padding:10px;border-radius:6px;color:var(--danger);margin-bottom:10px}
+
+/* table */
+table{width:100%;border-collapse:collapse;margin-top:12px}
+th,td{padding:10px;border-bottom:1px solid #f1f3f5;text-align:left}
+th{font-weight:700;color:var(--muted);font-size:0.95rem}
+.actions a, .actions form{display:inline-block;margin-right:6px}
+
+/* buttons */
+.btn{display:inline-block;padding:8px 12px;border-radius:8px;background:var(--accent);color:#fff;text-decoration:none;border:0;font-weight:600}
+.btn:hover{background:var(--accent-2)}
+.btn-danger{background:var(--danger)}
+.small{font-size:0.9rem;color:var(--muted);margin-top:12px}
+
+/* responsive adjustments */
+@media (max-width:720px){
+  .header-inner{flex-direction:column;align-items:flex-start;gap:8px}
+  .main-nav{flex-wrap:wrap}
+  .card{padding:16px}
+  table, th, td{font-size:14px}
+}
