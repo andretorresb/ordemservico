@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block content %}
+  <h1>Ordens de Serviço</h1>
+
+  {% if ordens %}
+    <table>
+      <thead>
+        <tr><th>ID</th><th>Descrição</th><th>Status</th><th>Abertura</th><th>Ações</th></tr>
+      </thead>
+      <tbody>
+        {% for o in ordens %}
+        <tr>
+          <td>{{ o.idordem }}</td>
+          <td>{{ o.descricaoobjeto|default:"(sem descrição)" }}</td>
+          <td>{{ o.situacao }}</td>
+          <td>{{ o.aberturadata }} {{ o.aberturahora }}</td>
+          <td class="actions">
+            <a href="{% url 'os_app:editar_os' o.idordem %}">Editar</a>
+            <form action="{% url 'os_app:remover_os' o.idordem %}" method="post" style="display:inline">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-danger" onclick="return confirm('Confirma exclusão da OS {{ o.idordem }}?')">Remover</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p>Não há ordens cadastradas.</p>
+  {% endif %}
+
+  <p style="margin-top:12px">
+    <a class="btn" href="{% url 'os_app:abrir_os' %}">Abrir nova OS</a>
+  </p>
+{% endblock %}

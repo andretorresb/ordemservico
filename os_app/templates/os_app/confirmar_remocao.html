@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+  <h1>Confirmar remoção</h1>
+  {% if error %}
+    <div class="errors">{{ error }}</div>
+  {% endif %}
+  <p>Deseja realmente remover a OS <strong>#{{ os.idordem }}</strong> - {{ os.descricaoobjeto|default:"(sem descrição)" }}?</p>
+
+  <form method="post">
+    {% csrf_token %}
+    <button class="btn btn-danger" type="submit">Sim, remover</button>
+    <a href="{% url 'os_app:listar_os' %}" style="margin-left:8px">Cancelar</a>
+  </form>
+{% endblock %}

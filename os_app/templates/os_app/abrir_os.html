@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block content %}
+  <h1>Abrir Ordem de Serviço</h1>
+
+  {% if form.non_field_errors %}
+    <div class="errors">
+      {{ form.non_field_errors }}
+    </div>
+  {% endif %}
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+    <p>
+      {{ form.descricaoobjeto.label_tag }}<br>
+      {{ form.descricaoobjeto }}
+      {% if form.descricaoobjeto.errors %}
+        <div class="errors">{{ form.descricaoobjeto.errors }}</div>
+      {% endif %}
+    </p>
+
+    <p>
+      {{ form.defeito.label_tag }}<br>
+      {{ form.defeito }}
+      {% if form.defeito.errors %}
+        <div class="errors">{{ form.defeito.errors }}</div>
+      {% endif %}
+    </p>
+
+    <p>
+      {{ form.idusuario.label_tag }}<br>
+      {{ form.idusuario }}
+      {% if form.idusuario.errors %}
+        <div class="errors">{{ form.idusuario.errors }}</div>
+      {% endif %}
+    </p>
+
+    <p>
+      <button class="btn" type="submit">Abrir OS</button>
+      <a href="{% url 'os_app:listar_os' %}" style="margin-left:8px">Voltar ao painel</a>
+    </p>
+  </form>
+{% endblock %}

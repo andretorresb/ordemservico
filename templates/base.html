@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Ordem de Serviço - {{ title|default:"Sistema" }}</title>
+  <style>
+    body{font-family:Inter,Segoe UI,Arial,Helvetica,sans-serif;margin:18px;}
+    header nav a{margin-right:12px;text-decoration:none;color:#0a58ca;}
+    .container{max-width:900px;margin:20px auto;}
+    .card{padding:14px;border:1px solid #eee;border-radius:8px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.03)}
+    form p{margin:8px 0}
+    label{font-weight:600}
+    .errors{background:#ffecec;border:1px solid #f5c2c2;padding:8px;border-radius:6px;color:#9a1f1f;margin-bottom:12px}
+    table{width:100%;border-collapse:collapse;margin-top:10px}
+    th,td{padding:8px;border-bottom:1px solid #eee;text-align:left}
+    .actions a, .actions form{display:inline-block;margin-right:6px}
+    .btn{display:inline-block;padding:8px 12px;border-radius:6px;background:#0a58ca;color:#fff;text-decoration:none}
+    .btn-danger{background:#d9534f}
+    .muted{color:#666;font-size:0.9em}
+  </style>
+</head>
+<body>
+  <header>
+    <nav>
+      <a href="{% url 'os_app:listar_os' %}">Painel</a> |
+      <a href="{% url 'os_app:abrir_os' %}">Abrir OS</a> |
+      <a href="/admin/">Admin</a>
+    </nav>
+  </header>
+
+  <main class="container">
+    <div class="card">
+      {% block content %}{% endblock %}
+    </div>
+    <p class="muted">Desenvolvimento — DEBUG=True</p>
+  </main>
+</body>
+</html>

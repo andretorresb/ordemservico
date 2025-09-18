@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+  <h1>OS criada com sucesso</h1>
+  <p><strong>ID:</strong> {{ os.idordem }}</p>
+  <p><strong>Empresa:</strong> {{ os.empresa }}</p>
+  <p><strong>Nome / Descrição:</strong><br>{{ os.descricaoobjeto }}</p>
+  <p><strong>Defeito:</strong><br>{{ os.defeito }}</p>
+
+  <p>
+    <a class="btn" href="{% url 'os_app:abrir_os' %}">Abrir outra</a>
+    <a style="margin-left:8px" href="{% url 'os_app:listar_os' %}">Ver painel</a>
+  </p>
+{% endblock %}
