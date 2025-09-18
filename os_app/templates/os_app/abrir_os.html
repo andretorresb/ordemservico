@@ -1,3 +1,4 @@
+{# os_app/templates/os_app/abrir_os.html #}
 {% extends "base.html" %}
 {% block content %}
   <h1>Abrir Ordem de Serviço</h1>
@@ -11,7 +12,6 @@
   <form method="post" novalidate>
     {% csrf_token %}
 
-    <!-- campos já existentes -->
     <p>
       {{ form.descricaoobjeto.label_tag }}<br>
       {{ form.descricaoobjeto }}
@@ -36,7 +36,7 @@
       {% endif %}
     </p>
 
-    <!-- novos campos adicionados -->
+    <!-- campos adicionais (sem idpedido/idresponsavel/idmecanico) -->
     <p>
       {{ form.nome_cliente.label_tag }}<br>
       {{ form.nome_cliente }}
@@ -50,14 +50,6 @@
       {{ form.email_cliente }}
       {% if form.email_cliente.errors %}
         <div class="errors">{{ form.email_cliente.errors }}</div>
-      {% endif %}
-    </p>
-
-    <p>
-      {{ form.idpedido.label_tag }}<br>
-      {{ form.idpedido }}
-      {% if form.idpedido.errors %}
-        <div class="errors">{{ form.idpedido.errors }}</div>
       {% endif %}
     </p>
 
@@ -82,14 +74,6 @@
       {{ form.proprietario }}
       {% if form.proprietario.errors %}
         <div class="errors">{{ form.proprietario.errors }}</div>
-      {% endif %}
-    </p>
-
-    <p>
-      {{ form.descricao_objeto.label_tag }}<br>
-      {{ form.descricao_objeto }}
-      {% if form.descricao_objeto.errors %}
-        <div class="errors">{{ form.descricao_objeto.errors }}</div>
       {% endif %}
     </p>
 
@@ -122,22 +106,6 @@
       {{ form.previsao_hora }}
       {% if form.previsao_hora.errors %}
         <div class="errors">{{ form.previsao_hora.errors }}</div>
-      {% endif %}
-    </p>
-
-    <p>
-      {{ form.idresponsavel.label_tag }}<br>
-      {{ form.idresponsavel }}
-      {% if form.idresponsavel.errors %}
-        <div class="errors">{{ form.idresponsavel.errors }}</div>
-      {% endif %}
-    </p>
-
-    <p>
-      {{ form.idmecanico.label_tag }}<br>
-      {{ form.idmecanico }}
-      {% if form.idmecanico.errors %}
-        <div class="errors">{{ form.idmecanico.errors }}</div>
       {% endif %}
     </p>
 
@@ -181,7 +149,6 @@
       {% endif %}
     </p>
 
-    <!-- botões -->
     <p>
       <button class="btn" type="submit">Abrir OS</button>
       <a href="{% url 'os_app:listar_os' %}" style="margin-left:8px">Voltar ao painel</a>

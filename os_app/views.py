@@ -18,13 +18,29 @@ def abrir_os(request):
     if request.method == 'POST':
         form = OrdemServicoForm(request.POST)
         if form.is_valid():
-            # mapeamento mínimo do form para colunas do banco
+            # mapeamento do form para colunas do banco (use nomes em maiúsculas conforme o DB)
             data = {
                 'DESCRICAOOBJETO': form.cleaned_data.get('descricaoobjeto') or '',
                 'DEFEITO': form.cleaned_data.get('defeito') or '',
                 'SITUACAO': 'REGISTRADA',
                 'IDUSUARIO': form.cleaned_data.get('idusuario') or 1,
+                # campos adicionais
+                'NOMECLIENTE': form.cleaned_data.get('nome_cliente') or '',
+                'EMAILCLIENTE': form.cleaned_data.get('email_cliente') or '',
+                'PLACA': form.cleaned_data.get('placa') or '',
+                'LOCALIZACAOOBJ': form.cleaned_data.get('localizacao') or '',
+                'PROPRIETARIO': form.cleaned_data.get('proprietario') or '',
+                'NATUREZA': form.cleaned_data.get('natureza') or '',
+                'CONDPAGTO': form.cleaned_data.get('cond_pagto') or '',
+                'PREVISAODATA': form.cleaned_data.get('previsao_data') or None,
+                'PREVISAOHORA': form.cleaned_data.get('previsao_hora') or None,
+                'VENDEDOR': form.cleaned_data.get('vendedor') or '',
+                'TECNICO': form.cleaned_data.get('tecnico') or '',
+                'PERTENCES': form.cleaned_data.get('pertencentes') or '',
+                'OBSERVACOES': form.cleaned_data.get('observacoes') or '',
+                'ENTRADA': form.cleaned_data.get('entrada') if form.cleaned_data.get('entrada') not in (None, '') else None,
             }
+
             # inserir no Firebird (inserir_ordem fará encode de BLOB binário quando necessário)
             try:
                 new_id = inserir_ordem(TABLE_OS, data, empresa=EMPRESA_DEFAULT)
@@ -32,6 +48,7 @@ def abrir_os(request):
                 # reportar erro no form
                 form.add_error(None, f"Erro ao salvar no Firebird: {e}")
                 return render(request, 'os_app/abrir_os.html', {'form': form})
+            # redireciona para a página de sucesso usando pk (id gerado)
             return redirect(reverse('os_app:sucesso', kwargs={'pk': new_id}))
     else:
         form = OrdemServicoForm()
@@ -43,6 +60,7 @@ def sucesso(request, pk):
     item = obter_ordem(TABLE_OS, EMPRESA_DEFAULT, pk, idcol=IDCOL, empresacol=EMPCOL)
     if not item:
         raise Http404("Ordem não encontrada")
+    # item é um dict (chaves minúsculas) vindo do helper — passamos direto como 'os'
     return render(request, 'os_app/sucesso.html', {'os': item})
 
 
@@ -54,7 +72,7 @@ def listar_os(request):
 
 def editar_os(request, pk):
     """Editar OS: GET = preenche form, POST = atualiza no Firebird."""
-    # obter registro atual
+    # obter registro atual (item será um dict com chaves minúsculas)
     item = obter_ordem(TABLE_OS, EMPRESA_DEFAULT, pk, idcol=IDCOL, empresacol=EMPCOL)
     if not item:
         raise Http404("Ordem não encontrada")
@@ -62,36 +80,63 @@ def editar_os(request, pk):
     if request.method == 'POST':
         form = OrdemServicoForm(request.POST)
         if form.is_valid():
-            # montar updates apenas com colunas válidas
+            # montar updates apenas com colunas válidas (em maiúsculas para o DB)
             updates = {}
-            # mapeie os campos do form para nomes de coluna do DB
-            if 'descricaoobjeto' in form.cleaned_data:
-                updates['DESCRICAOOBJETO'] = form.cleaned_data.get('descricaoobjeto')
-            if 'defeito' in form.cleaned_data:
-                updates['DEFEITO'] = form.cleaned_data.get('defeito')
-            if 'idusuario' in form.cleaned_data and form.cleaned_data.get('idusuario') is not None:
-                updates['IDUSUARIO'] = form.cleaned_data.get('idusuario')
-            # se quiser permitir alterar SITUACAO via form, adicione aqui
+
+            # campos que permitimos atualizar pelo form
+            mapping = {
+                'descricaoobjeto': 'DESCRICAOOBJETO',
+                'defeito': 'DEFEITO',
+                'idusuario': 'IDUSUARIO',
+                'nome_cliente': 'NOMECLIENTE',
+                'email_cliente': 'EMAILCLIENTE',
+                'placa': 'PLACA',
+                'localizacao': 'LOCALIZACAOOBJ',
+                'proprietario': 'PROPRIETARIO',
+                'natureza': 'NATUREZA',
+                'cond_pagto': 'CONDPAGTO',
+                'previsao_data': 'PREVISAODATA',
+                'previsao_hora': 'PREVISAOHORA',
+                'vendedor': 'VENDEDOR',
+                'tecnico': 'TECNICO',
+                'pertencentes': 'PERTENCES',
+                'observacoes': 'OBSERVACOES',
+                'entrada': 'ENTRADA',
+            }
+
+            for fkey, colname in mapping.items():
+                if fkey in form.cleaned_data:
+                    val = form.cleaned_data.get(fkey)
+                    # evitar inserir '' em campos numéricos ou None problemático
+                    if val is not None and (not (isinstance(val, str) and val == '')):
+                        updates[colname] = val
 
             if not updates:
                 form.add_error(None, "Nenhum campo para atualizar.")
                 return render(request, 'os_app/editar_os.html', {'form': form, 'os': item})
 
-            # usar metadata para tratar BLOBs binários
+            # metadata para detectar BLOB subtypes
             meta = _get_field_metadata(TABLE_OS)
+
             set_parts = []
             params = []
             for col_upper, val in ((k.upper(), v) for k, v in updates.items()):
-                # ignore PK / EMPRESA
+                # ignore PK / EMPRESA por segurança
                 if col_upper in (IDCOL.upper(), EMPCOL.upper()):
                     continue
-                # se coluna BLOB binária -> encode str->bytes
+
+                # se coluna BLOB (subtype != 0 indica texto/blob) — tratar strings -> bytes conforme seu DB
                 subtype = meta.get(col_upper, {}).get('subtype', 0)
-                if subtype == 0 and isinstance(val, str):
-                    try:
-                        val = val.encode(CHARSET)
-                    except Exception:
-                        val = val.encode(CHARSET, errors='replace')
+                # No seu código anterior você tratava subtype==0 como texto; aqui vamos:
+                # - se subtype == 1 or >0 -> é blob textual (ou texto) e deve ser enviado como bytes conforme CHARSET
+                if isinstance(val, str):
+                    if subtype and subtype != 0:
+                        try:
+                            val = val.encode(CHARSET)
+                        except Exception:
+                            val = val.encode(CHARSET, errors='replace')
+                    # para campos que são DATETIME/DATE/TIME, o form já retorna objetos adequados
+
                 set_parts.append(f"{col_upper} = ?")
                 params.append(val)
 
@@ -99,6 +144,7 @@ def editar_os(request, pk):
                 form.add_error(None, "Nenhuma coluna válida para atualizar.")
                 return render(request, 'os_app/editar_os.html', {'form': form, 'os': item})
 
+            # ordem dos params: valores..., EMPRESA_DEFAULT, pk
             params.append(EMPRESA_DEFAULT)
             params.append(pk)
             sql = f"UPDATE {TABLE_OS} SET {', '.join(set_parts)} WHERE {EMPCOL} = ? AND {IDCOL} = ?"
@@ -125,6 +171,20 @@ def editar_os(request, pk):
             'descricaoobjeto': item.get('descricaoobjeto'),
             'defeito': item.get('defeito'),
             'idusuario': item.get('idusuario'),
+            'nome_cliente': item.get('nomecliente') or item.get('nome_cliente'),
+            'email_cliente': item.get('emailcliente') or item.get('email_cliente'),
+            'placa': item.get('placa'),
+            'localizacao': item.get('localizacaoobj') or item.get('localizacao_obj'),
+            'proprietario': item.get('proprietario'),
+            'natureza': item.get('natureza'),
+            'cond_pagto': item.get('condpagto') or item.get('cond_pagto'),
+            'previsao_data': item.get('previsao_data') or item.get('previsaodata') or item.get('previsaodata'),
+            'previsao_hora': item.get('previsao_hora') or item.get('previsaohora') or item.get('previsaohora'),
+            'vendedor': item.get('vendedor'),
+            'tecnico': item.get('tecnico'),
+            'pertencentes': item.get('pertences'),
+            'observacoes': item.get('observacoes'),
+            'entrada': item.get('entrada'),
         }
         form = OrdemServicoForm(initial=init)
 

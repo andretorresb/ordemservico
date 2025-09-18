@@ -1,6 +1,7 @@
+{# os_app/templates/os_app/editar_os.html #}
 {% extends "base.html" %}
 {% block content %}
-  <h1>Editar OS #{{ os.idordem }}</h1>
+  <h1>Editar OS #{{ os.idordem|default:os.id }}</h1>
 
   {% if form.non_field_errors %}
     <div class="errors">
@@ -35,7 +36,7 @@
       {% endif %}
     </p>
 
-    <!-- novos campos -->
+    <!-- campos adicionais (sem idpedido/idresponsavel/idmecanico) -->
     <p>
       {{ form.nome_cliente.label_tag }}<br>
       {{ form.nome_cliente }}
@@ -49,14 +50,6 @@
       {{ form.email_cliente }}
       {% if form.email_cliente.errors %}
         <div class="errors">{{ form.email_cliente.errors }}</div>
-      {% endif %}
-    </p>
-
-    <p>
-      {{ form.idpedido.label_tag }}<br>
-      {{ form.idpedido }}
-      {% if form.idpedido.errors %}
-        <div class="errors">{{ form.idpedido.errors }}</div>
       {% endif %}
     </p>
 
@@ -113,22 +106,6 @@
       {{ form.previsao_hora }}
       {% if form.previsao_hora.errors %}
         <div class="errors">{{ form.previsao_hora.errors }}</div>
-      {% endif %}
-    </p>
-
-    <p>
-      {{ form.idresponsavel.label_tag }}<br>
-      {{ form.idresponsavel }}
-      {% if form.idresponsavel.errors %}
-        <div class="errors">{{ form.idresponsavel.errors }}</div>
-      {% endif %}
-    </p>
-
-    <p>
-      {{ form.idmecanico.label_tag }}<br>
-      {{ form.idmecanico }}
-      {% if form.idmecanico.errors %}
-        <div class="errors">{{ form.idmecanico.errors }}</div>
       {% endif %}
     </p>
 

@@ -1,12 +1,15 @@
+{# os_app/templates/os_app/sucesso.html #}
 {% extends "base.html" %}
 {% block content %}
   <h1>OS criada com sucesso</h1>
 
-  <p><strong>ID:</strong> {{ os.idordem|default:os.id }}</p>
+  <p><strong>ID:</strong>
+    {% if os.idordem %}{{ os.idordem }}
+    {% elif os.id %}{{ os.id }}
+    {% else %}-{% endif %}
+  </p>
 
   <p><strong>Empresa:</strong> {{ os.empresa|default:"-" }}</p>
-
-  <p><strong>ID Pedido:</strong> {{ os.idpedido|default:"-" }}</p>
 
   <p><strong>Nome / Descrição:</strong><br>{{ os.descricaoobjeto|default:"(sem descrição)" }}</p>
 

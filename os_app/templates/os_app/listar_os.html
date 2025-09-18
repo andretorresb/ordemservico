@@ -1,3 +1,4 @@
+{# os_app/templates/os_app/listar_os.html #}
 {% extends "base.html" %}
 {% block content %}
   <h1>Ordens de Serviço</h1>
@@ -20,27 +21,16 @@
       <tbody>
         {% for o in ordens %}
         <tr>
-          <td>{{ o.idordem }}</td>
-
-          {# descrição: tenta descrição existente, senão mostra texto padrão #}
+          <td>{% if o.idordem %}{{ o.idordem }}{% elif o.id %}{{ o.id }}{% else %}-{% endif %}</td>
           <td>{{ o.descricaoobjeto|default:"(sem descrição)" }}</td>
-
           <td>{{ o.situacao|default:"-" }}</td>
-
-          {# abertura: mostra data e hora (se existirem) #}
           <td>
             {% if o.aberturadata %}{{ o.aberturadata|date:"d/m/Y" }}{% endif %}
             {% if o.aberturahora %} {{ o.aberturahora|time:"H:i" }}{% endif %}
             {% if not o.aberturadata and not o.aberturahora %}-{% endif %}
           </td>
-
-          {# Placa #}
           <td>{{ o.placa|default:"-" }}</td>
-
-          {# Proprietário #}
           <td>{{ o.proprietario|default:"-" }}</td>
-
-          {# Entrada formatada como moeda (2 casas) #}
           <td>
             {% if o.entrada is not None and o.entrada != "" %}
               R$ {{ o.entrada|floatformat:2 }}
@@ -48,8 +38,6 @@
               -
             {% endif %}
           </td>
-
-          {# Previsão (data + hora) #}
           <td>
             {% if o.previsao_data or o.previsao_hora %}
               {% if o.previsao_data %}{{ o.previsao_data|date:"d/m/Y" }}{% endif %}
@@ -58,7 +46,6 @@
               -
             {% endif %}
           </td>
-
           <td class="actions">
             <a href="{% url 'os_app:editar_os' o.idordem %}">Editar</a>
             <form action="{% url 'os_app:remover_os' o.idordem %}" method="post" style="display:inline">

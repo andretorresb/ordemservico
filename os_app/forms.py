@@ -6,16 +6,12 @@ class OrdemServicoForm(forms.Form):
     defeito = forms.CharField(widget=forms.Textarea(attrs={'rows':4}), required=False, label='Defeito')
     idusuario = forms.IntegerField(required=False, label='Usuário')
 
-    # ----- CAMPOS ADICIONAIS (adicionados) -----
-    idpedido = forms.IntegerField(required=False, label='ID Pedido')
+    # ----- CAMPOS ADICIONAIS (mantidos) -----
     placa = forms.CharField(max_length=32, required=False, label='Placa')
     localizacao = forms.CharField(max_length=100, required=False, label='Localização')
 
     previsao_data = forms.DateField(required=False, widget=forms.DateInput(attrs={'type': 'date'}), label='Previsão (data)')
     previsao_hora = forms.TimeField(required=False, widget=forms.TimeInput(attrs={'type': 'time'}), label='Previsão (hora)')
-
-    idresponsavel = forms.IntegerField(required=False, label='ID Responsável')
-    idmecanico = forms.IntegerField(required=False, label='ID Mecânico')
 
     pertencentes = forms.CharField(widget=forms.Textarea(attrs={'rows':2}), required=False, label='Pertences')
     observacoes = forms.CharField(widget=forms.Textarea(attrs={'rows':2}), required=False, label='Observações')
