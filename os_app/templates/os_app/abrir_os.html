@@ -10,6 +10,8 @@
 
   <form method="post" novalidate>
     {% csrf_token %}
+
+    <!-- campos já existentes -->
     <p>
       {{ form.descricaoobjeto.label_tag }}<br>
       {{ form.descricaoobjeto }}
@@ -34,6 +36,152 @@
       {% endif %}
     </p>
 
+    <!-- novos campos adicionados -->
+    <p>
+      {{ form.nome_cliente.label_tag }}<br>
+      {{ form.nome_cliente }}
+      {% if form.nome_cliente.errors %}
+        <div class="errors">{{ form.nome_cliente.errors }}</div>
+      {% endif %}
+    </p>
+
+    <p>
+      {{ form.email_cliente.label_tag }}<br>
+      {{ form.email_cliente }}
+      {% if form.email_cliente.errors %}
+        <div class="errors">{{ form.email_cliente.errors }}</div>
+      {% endif %}
+    </p>
+
+    <p>
+      {{ form.idpedido.label_tag }}<br>
+      {{ form.idpedido }}
+      {% if form.idpedido.errors %}
+        <div class="errors">{{ form.idpedido.errors }}</div>
+      {% endif %}
+    </p>
+
+    <p>
+      {{ form.placa.label_tag }}<br>
+      {{ form.placa }}
+      {% if form.placa.errors %}
+        <div class="errors">{{ form.placa.errors }}</div>
+      {% endif %}
+    </p>
+
+    <p>
+      {{ form.localizacao.label_tag }}<br>
+      {{ form.localizacao }}
+      {% if form.localizacao.errors %}
+        <div class="errors">{{ form.localizacao.errors }}</div>
+      {% endif %}
+    </p>
+
+    <p>
+      {{ form.proprietario.label_tag }}<br>
+      {{ form.proprietario }}
+      {% if form.proprietario.errors %}
+        <div class="errors">{{ form.proprietario.errors }}</div>
+      {% endif %}
+    </p>
+
+    <p>
+      {{ form.descricao_objeto.label_tag }}<br>
+      {{ form.descricao_objeto }}
+      {% if form.descricao_objeto.errors %}
+        <div class="errors">{{ form.descricao_objeto.errors }}</div>
+      {% endif %}
+    </p>
+
+    <p>
+      {{ form.natureza.label_tag }}<br>
+      {{ form.natureza }}
+      {% if form.natureza.errors %}
+        <div class="errors">{{ form.natureza.errors }}</div>
+      {% endif %}
+    </p>
+
+    <p>
+      {{ form.cond_pagto.label_tag }}<br>
+      {{ form.cond_pagto }}
+      {% if form.cond_pagto.errors %}
+        <div class="errors">{{ form.cond_pagto.errors }}</div>
+      {% endif %}
+    </p>
+
+    <p>
+      {{ form.previsao_data.label_tag }}<br>
+      {{ form.previsao_data }}
+      {% if form.previsao_data.errors %}
+        <div class="errors">{{ form.previsao_data.errors }}</div>
+      {% endif %}
+    </p>
+
+    <p>
+      {{ form.previsao_hora.label_tag }}<br>
+      {{ form.previsao_hora }}
+      {% if form.previsao_hora.errors %}
+        <div class="errors">{{ form.previsao_hora.errors }}</div>
+      {% endif %}
+    </p>
+
+    <p>
+      {{ form.idresponsavel.label_tag }}<br>
+      {{ form.idresponsavel }}
+      {% if form.idresponsavel.errors %}
+        <div class="errors">{{ form.idresponsavel.errors }}</div>
+      {% endif %}
+    </p>
+
+    <p>
+      {{ form.idmecanico.label_tag }}<br>
+      {{ form.idmecanico }}
+      {% if form.idmecanico.errors %}
+        <div class="errors">{{ form.idmecanico.errors }}</div>
+      {% endif %}
+    </p>
+
+    <p>
+      {{ form.vendedor.label_tag }}<br>
+      {{ form.vendedor }}
+      {% if form.vendedor.errors %}
+        <div class="errors">{{ form.vendedor.errors }}</div>
+      {% endif %}
+    </p>
+
+    <p>
+      {{ form.tecnico.label_tag }}<br>
+      {{ form.tecnico }}
+      {% if form.tecnico.errors %}
+        <div class="errors">{{ form.tecnico.errors }}</div>
+      {% endif %}
+    </p>
+
+    <p>
+      {{ form.pertencentes.label_tag }}<br>
+      {{ form.pertencentes }}
+      {% if form.pertencentes.errors %}
+        <div class="errors">{{ form.pertencentes.errors }}</div>
+      {% endif %}
+    </p>
+
+    <p>
+      {{ form.observacoes.label_tag }}<br>
+      {{ form.observacoes }}
+      {% if form.observacoes.errors %}
+        <div class="errors">{{ form.observacoes.errors }}</div>
+      {% endif %}
+    </p>
+
+    <p>
+      {{ form.entrada.label_tag }}<br>
+      {{ form.entrada }}
+      {% if form.entrada.errors %}
+        <div class="errors">{{ form.entrada.errors }}</div>
+      {% endif %}
+    </p>
+
+    <!-- botões -->
     <p>
       <button class="btn" type="submit">Abrir OS</button>
       <a href="{% url 'os_app:listar_os' %}" style="margin-left:8px">Voltar ao painel</a>

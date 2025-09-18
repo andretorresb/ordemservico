@@ -5,15 +5,60 @@
   {% if ordens %}
     <table>
       <thead>
-        <tr><th>ID</th><th>Descrição</th><th>Status</th><th>Abertura</th><th>Ações</th></tr>
+        <tr>
+          <th>ID</th>
+          <th>Descrição</th>
+          <th>Status</th>
+          <th>Abertura</th>
+          <th>Placa</th>
+          <th>Proprietário</th>
+          <th>Entrada</th>
+          <th>Previsão</th>
+          <th>Ações</th>
+        </tr>
       </thead>
       <tbody>
         {% for o in ordens %}
         <tr>
           <td>{{ o.idordem }}</td>
+
+          {# descrição: tenta descrição existente, senão mostra texto padrão #}
           <td>{{ o.descricaoobjeto|default:"(sem descrição)" }}</td>
-          <td>{{ o.situacao }}</td>
-          <td>{{ o.aberturadata }} {{ o.aberturahora }}</td>
+
+          <td>{{ o.situacao|default:"-" }}</td>
+
+          {# abertura: mostra data e hora (se existirem) #}
+          <td>
+            {% if o.aberturadata %}{{ o.aberturadata|date:"d/m/Y" }}{% endif %}
+            {% if o.aberturahora %} {{ o.aberturahora|time:"H:i" }}{% endif %}
+            {% if not o.aberturadata and not o.aberturahora %}-{% endif %}
+          </td>
+
+          {# Placa #}
+          <td>{{ o.placa|default:"-" }}</td>
+
+          {# Proprietário #}
+          <td>{{ o.proprietario|default:"-" }}</td>
+
+          {# Entrada formatada como moeda (2 casas) #}
+          <td>
+            {% if o.entrada is not None and o.entrada != "" %}
+              R$ {{ o.entrada|floatformat:2 }}
+            {% else %}
+              -
+            {% endif %}
+          </td>
+
+          {# Previsão (data + hora) #}
+          <td>
+            {% if o.previsao_data or o.previsao_hora %}
+              {% if o.previsao_data %}{{ o.previsao_data|date:"d/m/Y" }}{% endif %}
+              {% if o.previsao_hora %} {{ o.previsao_hora|time:"H:i" }}{% endif %}
+            {% else %}
+              -
+            {% endif %}
+          </td>
+
           <td class="actions">
             <a href="{% url 'os_app:editar_os' o.idordem %}">Editar</a>
             <form action="{% url 'os_app:remover_os' o.idordem %}" method="post" style="display:inline">

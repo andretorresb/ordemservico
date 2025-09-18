@@ -1,10 +1,35 @@
 {% extends "base.html" %}
 {% block content %}
   <h1>Confirmar remoção</h1>
+
   {% if error %}
     <div class="errors">{{ error }}</div>
   {% endif %}
-  <p>Deseja realmente remover a OS <strong>#{{ os.idordem }}</strong> - {{ os.descricaoobjeto|default:"(sem descrição)" }}?</p>
+
+  <p>Deseja realmente remover a OS <strong>#{{ os.idordem|default:os.id }}</strong> - {{ os.descricaoobjeto|default:"(sem descrição)" }}?</p>
+
+  <div style="margin:12px 0; padding:8px; border:1px solid #ddd; background:#fafafa;">
+    <p><strong>ID Pedido:</strong> {{ os.idpedido|default:"-" }}</p>
+    <p><strong>Empresa:</strong> {{ os.empresa|default:"-" }}</p>
+    <p><strong>Placa:</strong> {{ os.placa|default:"-" }}</p>
+    <p><strong>Proprietário:</strong> {{ os.proprietario|default:"-" }}</p>
+    <p><strong>Entrada:</strong>
+      {% if os.entrada is not None and os.entrada != "" %}
+        R$ {{ os.entrada|floatformat:2 }}
+      {% else %}
+        -
+      {% endif %}
+    </p>
+    <p><strong>Previsão:</strong>
+      {% if os.previsao_data or os.previsao_hora %}
+        {% if os.previsao_data %}{{ os.previsao_data|date:"d/m/Y" }}{% endif %}
+        {% if os.previsao_hora %} {{ os.previsao_hora|time:"H:i" }}{% endif %}
+      {% else %}
+        -
+      {% endif %}
+    </p>
+    <p><strong>Status:</strong> {{ os.situacao|default:"-" }}</p>
+  </div>
 
   <form method="post">
     {% csrf_token %}
