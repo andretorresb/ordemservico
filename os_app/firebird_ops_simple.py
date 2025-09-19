@@ -184,3 +184,83 @@ def obter_ordem(table, empresa, idordem, idcol='IDORDEM', empresacol='EMPRESA'):
                 pass
         d[col.lower()] = val
     return d
+
+# -------------------------
+# Função adicionada: cancelar_ordem (soft-delete)
+# -------------------------
+def cancelar_ordem(table, empresa, idordem, usuario_id=None, motivo=None):
+    """
+    Cancela uma ordem (soft-delete): atualiza SITUACAO='CANCELADA' e campos de encerramento/fechamento
+    e grava usuario/motivo quando possíveis.
+    Retorna: número de linhas afetadas (1 esperado) ou 0 se nada encontrado.
+    Lança RuntimeError se houver erro do banco.
+    """
+    t = table.upper()
+    meta = _get_field_metadata(t)
+    cols = list(meta.keys())  # colunas existentes em MAIÚSCULAS
+
+    set_clauses = []
+    params = []
+
+    # 1) sempre setar SITUACAO = 'CANCELADA' (se existir)
+    if 'SITUACAO' in cols:
+        set_clauses.append("SITUACAO = ?")
+        params.append('CANCELADA')
+
+    # 2) setar timestamps que existem: ENCERRAMENTO, FECHAMENTO (CURRENT_TIMESTAMP)
+    if 'ENCERRAMENTO' in cols:
+        set_clauses.append("ENCERRAMENTO = CURRENT_TIMESTAMP")
+    if 'FECHAMENTO' in cols:
+        set_clauses.append("FECHAMENTO = CURRENT_TIMESTAMP")
+
+    # 3) atualizar IDUSUARIO se solicitado e campo existir
+    if usuario_id is not None and 'IDUSUARIO' in cols:
+        set_clauses.append("IDUSUARIO = ?")
+        params.append(usuario_id)
+
+    # 4) gravar motivo em uma coluna disponível (prefere MOTIVO, OBS, OBSERVACAO, COMPLEMENTO)
+    motivo_col_candidates = ['MOTIVO', 'OBS', 'OBSERVACAO', 'COMPLEMENTO', 'HISTORICO']
+    motivo_col = None
+    for c in motivo_col_candidates:
+        if c in cols:
+            motivo_col = c
+            break
+    if motivo and motivo_col:
+        sub = meta.get(motivo_col, {}).get('subtype', 0)
+        if sub == 0 and isinstance(motivo, str):
+            try:
+                motivo_param = motivo.encode(CHARSET)
+            except Exception:
+                motivo_param = motivo.encode(CHARSET, errors='replace')
+        else:
+            motivo_param = motivo
+        set_clauses.append(f"{motivo_col} = ?")
+        params.append(motivo_param)
+
+    if not set_clauses:
+        raise RuntimeError("Nenhuma coluna válida para marcar como cancelada nesta tabela.")
+
+    # montar SQL final
+    set_sql = ", ".join(set_clauses)
+    sql = f"UPDATE {t} SET {set_sql} WHERE EMPRESA = ? AND IDORDEM = ?"
+    params.append(empresa)
+    params.append(idordem)
+
+    # executar
+    with fb_connect() as con:
+        cur = con.cursor()
+        try:
+            cur.execute(sql, tuple(params))
+            # tentar obter número de linhas afetadas (alguns drivers não suportam rowcount)
+            affected = None
+            try:
+                affected = cur.rowcount
+            except Exception:
+                affected = None
+            con.commit()
+            cur.close()
+            return affected if affected is not None else 1
+        except Exception as e:
+            con.rollback()
+            cur.close()
+            raise RuntimeError(f"Erro ao cancelar ordem {empresa}/{idordem}: {e}")

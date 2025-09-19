@@ -8,5 +8,5 @@ urlpatterns = [
     path('sucesso/<int:pk>/', views.sucesso, name='sucesso'),
     path('', views.listar_os, name='listar_os'),
     path('editar/<int:pk>/', views.editar_os, name='editar_os'),
-    path('remover/<int:pk>/', views.remover_os, name='remover_os'),
+    path('cancelar/<int:pk>/', views.cancelar_os, name='cancelar_os'),
 ]

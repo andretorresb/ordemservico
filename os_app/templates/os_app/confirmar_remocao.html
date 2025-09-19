@@ -1,12 +1,12 @@
 {# os_app/templates/os_app/confirmar_remocao.html #}
 {% extends "base.html" %}
 {% block content %}
-  <h1>Confirmar remoção</h1>
+  <h1>Confirmar cancelamento</h1>
   {% if error %}
     <div class="errors">{{ error }}</div>
   {% endif %}
 
-  <p>Deseja realmente remover a OS <strong>#
+  <p>Deseja realmente Cancelar a OS <strong>#
     {% if os.idordem %}{{ os.idordem }}
     {% elif os.id %}{{ os.id }}
     {% else %}-{% endif %}
@@ -34,9 +34,12 @@
     <p><strong>Status:</strong> {{ os.situacao|default:"-" }}</p>
   </div>
 
-  <form method="post">
+  {# definir pk usado na url (usa idordem ou id) #}
+  {% with os.idordem|default:os.id as pk %}
+  <form method="post" action="{% url 'os_app:cancelar_os' pk %}">
     {% csrf_token %}
-    <button class="btn btn-danger" type="submit">Sim, remover</button>
+    <button class="btn btn-danger" type="submit">Sim, cancelar</button>
     <a href="{% url 'os_app:listar_os' %}" style="margin-left:8px">Cancelar</a>
   </form>
+  {% endwith %}
 {% endblock %}

@@ -46,12 +46,26 @@
               -
             {% endif %}
           </td>
+
           <td class="actions">
-            <a href="{% url 'os_app:editar_os' o.idordem %}">Editar</a>
-            <form action="{% url 'os_app:remover_os' o.idordem %}" method="post" style="display:inline">
-              {% csrf_token %}
-              <button type="submit" class="btn btn-danger" onclick="return confirm('Confirma exclusão da OS {{ o.idordem }}?')">Remover</button>
-            </form>
+            {# gerar links/ forms escolhendo o id existente (idordem ou id) #}
+            {% if o.idordem %}
+              <a href="{% url 'os_app:editar_os' o.idordem %}">Editar</a>
+
+              <form action="{% url 'os_app:cancelar_os' o.idordem %}" method="post" style="display:inline" class="confirm-delete">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-warning" onclick="return confirm('Confirma cancelamento da OS {{ o.idordem }}?')">Cancelar</button>
+              </form>
+            {% elif o.id %}
+              <a href="{% url 'os_app:editar_os' o.id %}">Editar</a>
+
+              <form action="{% url 'os_app:cancelar_os' o.id %}" method="post" style="display:inline" class="confirm-delete">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-warning" onclick="return confirm('Confirma cancelamento da OS {{ o.id }}?')">Cancelar</button>
+              </form>
+            {% else %}
+              -
+            {% endif %}
           </td>
         </tr>
         {% endfor %}

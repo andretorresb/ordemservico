@@ -4,7 +4,7 @@ from django.urls import reverse
 from django.http import Http404
 from django.conf import settings
 from .forms import OrdemServicoForm
-from .firebird_ops_simple import inserir_ordem, listar_ordens, obter_ordem, _get_field_metadata
+from .firebird_ops_simple import inserir_ordem, listar_ordens, obter_ordem, _get_field_metadata, cancelar_ordem
 from .firebird_db import fb_connect, CHARSET
 
 TABLE_OS = 'TORDEMSERVICO'
@@ -235,23 +235,26 @@ def editar_os(request, pk):
     return render(request, 'os_app/editar_os.html', {'form': form, 'os': item})
 
 
-def remover_os(request, pk):
-    """Remover OS via POST (confirmação)."""
+def cancelar_os(request, pk):
+    """Cancelar (marcar como 'CANCELADA') a OS via POST (confirmação)."""
     item = obter_ordem(TABLE_OS, EMPRESA_DEFAULT, pk, idcol=IDCOL, empresacol=EMPCOL)
     if not item:
         raise Http404("Ordem não encontrada")
 
     if request.method == 'POST':
-        sql = f"DELETE FROM {TABLE_OS} WHERE {EMPCOL} = ? AND {IDCOL} = ?"
+        sql = f"UPDATE {TABLE_OS} SET SITUACAO = ? WHERE {EMPCOL} = ? AND {IDCOL} = ?"
         try:
             with fb_connect() as con:
                 cur = con.cursor()
-                cur.execute(sql, (EMPRESA_DEFAULT, pk))
+                cur.execute(sql, ('CANCELADA', EMPRESA_DEFAULT, pk))
                 affected = cur.rowcount
                 con.commit()
                 cur.close()
+            # opcional: você pode querer manter a OS visível no painel, por isso apenas atualizamos SITUACAO
             return redirect('os_app:listar_os')
         except Exception as e:
             return render(request, 'os_app/confirmar_remocao.html', {'os': item, 'error': str(e)})
 
+    # se GET, mostrar a mesma tela de confirmação (reutiliza o template)
     return render(request, 'os_app/confirmar_remocao.html', {'os': item})
+
