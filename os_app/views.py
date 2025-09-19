@@ -1,13 +1,18 @@
 # os_app/views.py
 from django.shortcuts import render, redirect
 from django.urls import reverse
-from django.http import Http404
+from django.http import Http404, JsonResponse
 from django.conf import settings
 from .forms import OrdemServicoForm
-from .firebird_ops_simple import inserir_ordem, listar_ordens, obter_ordem, _get_field_metadata, cancelar_ordem
+from .firebird_ops_simple import (
+    inserir_ordem, listar_ordens, obter_ordem,
+    _get_field_metadata, cancelar_ordem
+)
 from .firebird_db import fb_connect, CHARSET
 
 TABLE_OS = 'TORDEMSERVICO'
+TABLE_OBJ = 'TORDEMOBJETO'  # tabela de objetos (veículos) conforme seu DB screenshots
+TABLE_CLIENTE = 'TORDECLIENTE'  # tentativa de nome de tabela de clientes (fallback se existir)
 EMPRESA_DEFAULT = getattr(settings, 'EMPRESA_DEFAULT', 1)  # ajuste se necessário
 IDCOL = 'IDORDEM'
 EMPCOL = 'EMPRESA'
@@ -29,21 +34,149 @@ def _is_blob_column(meta_entry: dict) -> bool:
     return False
 
 
+# ----------------------
+# APIs AJAX / helpers
+# ----------------------
+def objetos_por_proprietario(request, cliente_id):
+    """
+    Retorna JSON com lista de objetos (id + label) pertencentes ao cliente (IDCLIENTE).
+    Label montado como "TIPO - MARCA - MODELO - PLACA".
+    """
+    try:
+        with fb_connect() as con:
+            cur = con.cursor()
+            # buscamos objetos daquele cliente — sem forçar EMPRESA (algumas bases não têm essa coluna aqui)
+            cur.execute("""
+                SELECT IDOBJETO, TIPO, MARCA, MODELO, PLACA
+                FROM %s
+                WHERE IDCLIENTE = ?
+                ORDER BY IDOBJETO
+            """ % TABLE_OBJ, (cliente_id,))
+            rows = cur.fetchall()
+            cur.close()
+
+        lista = []
+        for r in rows:
+            idobj, tipo, marca, modelo, placa = r
+            partes = []
+            if tipo:
+                partes.append(str(tipo))
+            if marca:
+                partes.append(str(marca))
+            if modelo:
+                partes.append(str(modelo))
+            label = " - ".join(partes)
+            if placa:
+                label = f"{label} - PLACA: {placa}" if label else f"PLACA: {placa}"
+            lista.append({'id': idobj, 'label': label})
+        return JsonResponse({'objects': lista})
+    except Exception as e:
+        # não quebrar; retorna erro para o cliente JS tratar
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+def objeto_detail(request, pk):
+    """
+    Retorna JSON com dados do objeto (tipo, marca, modelo, cor, placa).
+    """
+    try:
+        with fb_connect() as con:
+            cur = con.cursor()
+            cur.execute("""
+                SELECT IDOBJETO, TIPO, MARCA, MODELO, COR, PLACA
+                FROM %s
+                WHERE IDOBJETO = ?
+            """ % TABLE_OBJ, (pk,))
+            row = cur.fetchone()
+            cur.close()
+
+        if not row:
+            return JsonResponse({'error': 'not found'}, status=404)
+        idobj, tipo, marca, modelo, cor, placa = row
+        return JsonResponse({
+            'id': idobj,
+            'tipo': tipo,
+            'marca': marca,
+            'modelo': modelo,
+            'cor': cor,
+            'placa': placa
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+# ----------------------
+# views principais
+# ----------------------
 def abrir_os(request):
     """Form público para abrir uma ordem — grava no Firebird."""
     if request.method == 'POST':
         form = OrdemServicoForm(request.POST)
         if form.is_valid():
-            # mapeamento do form para colunas do banco (use nomes em maiúsculas conforme o DB)
+            # Primeiro: montar descrição do objeto usando IDOBJETO (se informado) ou campos manuais
+            idobj = form.cleaned_data.get('idobjeto') or None
+            tipo = (form.cleaned_data.get('tipo_objeto') or '').strip()
+            marca = (form.cleaned_data.get('marca') or '').strip()
+            modelo = (form.cleaned_data.get('modelo') or '').strip()
+            placa = (form.cleaned_data.get('placa') or '').strip()
+
+            descricao_final = ''
+            # tentar montar a partir do objeto cadastrado, se houver id
+            if idobj:
+                try:
+                    with fb_connect() as con:
+                        cur = con.cursor()
+                        cur.execute(f"SELECT TIPO, MARCA, MODELO, COR, PLACA FROM {TABLE_OBJ} WHERE IDOBJETO = ?", (idobj,))
+                        row = cur.fetchone()
+                        cur.close()
+                    if row:
+                        tipo_db, marca_db, modelo_db, cor_db, placa_db = row
+                        partes = []
+                        if tipo_db:
+                            partes.append(str(tipo_db))
+                        if marca_db:
+                            partes.append(str(marca_db))
+                        if modelo_db:
+                            partes.append(str(modelo_db))
+                        placa_val = placa_db or placa
+                        descricao_final = " - ".join(partes)
+                        if placa_val:
+                            descricao_final = f"{descricao_final} - PLACA: {placa_val}" if descricao_final else f"PLACA: {placa_val}"
+                    else:
+                        # se idobj informado mas não achou, construir com campos manuais
+                        partes = [p for p in (tipo, marca, modelo) if p]
+                        descricao_final = " - ".join(partes)
+                        if placa:
+                            descricao_final = f"{descricao_final} - PLACA: {placa}" if descricao_final else f"PLACA: {placa}"
+                except Exception:
+                    # em caso de erro ao buscar objeto, fallback para dados manuais
+                    partes = [p for p in (tipo, marca, modelo) if p]
+                    descricao_final = " - ".join(partes)
+                    if placa:
+                        descricao_final = f"{descricao_final} - PLACA: {placa}" if descricao_final else f"PLACA: {placa}"
+            else:
+                # sem idobj -> montar com campos manuais
+                partes = [p for p in (tipo, marca, modelo) if p]
+                descricao_final = " - ".join(partes)
+                if placa:
+                    descricao_final = f"{descricao_final} - PLACA: {placa}" if descricao_final else f"PLACA: {placa}"
+
+            # se o usuário forneceu descricaoobjeto livre e descricao_final estiver vazia, usar esse texto
+            descricao_livre = (form.cleaned_data.get('descricaoobjeto') or '').strip()
+            if not descricao_final and descricao_livre:
+                descricao_final = descricao_livre
+
+            # mapear o form para o dict que será gravado no DB
             data = {
-                'DESCRICAOOBJETO': form.cleaned_data.get('descricaoobjeto') or '',
+                'DESCRICAOOBJETO': descricao_final,
                 'DEFEITO': form.cleaned_data.get('defeito') or '',
                 'SITUACAO': 'REGISTRADA',
                 'IDUSUARIO': form.cleaned_data.get('idusuario') or 1,
+                'IDOBJETO': idobj,
+                'PLACA': placa or (None if placa == '' else placa),
                 # campos adicionais
                 'NOMECLIENTE': form.cleaned_data.get('nome_cliente') or '',
                 'EMAILCLIENTE': form.cleaned_data.get('email_cliente') or '',
-                'PLACA': form.cleaned_data.get('placa') or '',
                 'LOCALIZACAOOBJ': form.cleaned_data.get('localizacao') or '',
                 'PROPRIETARIO': form.cleaned_data.get('proprietario') or '',
                 'NATUREZA': form.cleaned_data.get('natureza') or '',
@@ -85,12 +218,36 @@ def abrir_os(request):
             except Exception as e:
                 # reportar erro no form
                 form.add_error(None, f"Erro ao salvar no Firebird: {e}")
-                return render(request, 'os_app/abrir_os.html', {'form': form})
+                # tentar também carregar clients para re-renderizar o form com opções
+                clients = []
+                try:
+                    with fb_connect() as con:
+                        cur = con.cursor()
+                        cur.execute(f"SELECT IDCLIENTE, NOME FROM {TABLE_CLIENTE} ORDER BY NOME")
+                        rows = cur.fetchall()
+                        cur.close()
+                        clients = [{'id': r[0], 'nome': r[1]} for r in rows]
+                except Exception:
+                    clients = []
+                return render(request, 'os_app/abrir_os.html', {'form': form, 'clients': clients})
             # redireciona para a página de sucesso usando pk (id gerado)
             return redirect(reverse('os_app:sucesso', kwargs={'pk': new_id}))
     else:
         form = OrdemServicoForm()
-    return render(request, 'os_app/abrir_os.html', {'form': form})
+
+    # carregar lista de proprietários (clientes) para popular select (se a tabela existir)
+    clients = []
+    try:
+        with fb_connect() as con:
+            cur = con.cursor()
+            cur.execute(f"SELECT IDCLIENTE, NOME FROM {TABLE_CLIENTE} ORDER BY NOME")
+            rows = cur.fetchall()
+            cur.close()
+        clients = [{'id': r[0], 'nome': r[1]} for r in rows]
+    except Exception:
+        clients = []
+
+    return render(request, 'os_app/abrir_os.html', {'form': form, 'clients': clients})
 
 
 def sucesso(request, pk):
@@ -140,6 +297,8 @@ def editar_os(request, pk):
                 'pertencentes': 'PERTENCES',
                 'observacoes': 'OBSERVACOES',
                 'entrada': 'ENTRADA',
+                # permitir também atualizar IDOBJETO caso o form tenha esse campo
+                'idobjeto': 'IDOBJETO',
             }
 
             for fkey, colname in mapping.items():
@@ -229,7 +388,32 @@ def editar_os(request, pk):
             'pertencentes': item.get('pertences'),
             'observacoes': item.get('observacoes'),
             'entrada': item.get('entrada'),
+            # novo campo idobjeto (se armazenado no registro)
+            'idobjeto': item.get('idobjeto') or item.get('id_objeto'),
         }
+
+        # se existir idobjeto, tentar buscar dados do objeto pra preencher marca/modelo/placa/tipo
+        try:
+            objid = init.get('idobjeto')
+            if objid:
+                with fb_connect() as con:
+                    cur = con.cursor()
+                    cur.execute(f"SELECT TIPO, MARCA, MODELO, COR, PLACA FROM {TABLE_OBJ} WHERE IDOBJETO = ?", (objid,))
+                    r = cur.fetchone()
+                    cur.close()
+                if r:
+                    tipo_db, marca_db, modelo_db, cor_db, placa_db = r
+                    init['tipo_objeto'] = tipo_db
+                    init['marca'] = marca_db
+                    init['modelo'] = modelo_db
+                    init['cor'] = cor_db
+                    # se PLACA na OS estiver vazia, preencher com a do objeto
+                    if not init.get('placa') and placa_db:
+                        init['placa'] = placa_db
+        except Exception:
+            # se falhar, apenas ignore — não queremos quebrar o formulário de edição
+            pass
+
         form = OrdemServicoForm(initial=init)
 
     return render(request, 'os_app/editar_os.html', {'form': form, 'os': item})
@@ -257,4 +441,3 @@ def cancelar_os(request, pk):
 
     # se GET, mostrar a mesma tela de confirmação (reutiliza o template)
     return render(request, 'os_app/confirmar_remocao.html', {'os': item})
-

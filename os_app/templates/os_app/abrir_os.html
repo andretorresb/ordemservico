@@ -12,14 +12,76 @@
   <form method="post" novalidate>
     {% csrf_token %}
 
+    <!-- Proprietário (select populado pelo view via 'clients') -->
     <p>
-      {{ form.descricaoobjeto.label_tag }}<br>
+      <label for="id_proprietario">Proprietário</label><br>
+      <select id="id_proprietario" name="proprietario">
+        <option value="">-- selecione --</option>
+        {% for c in clients %}
+          <option value="{{ c.id }}" {% if form.proprietario.value|stringformat:"s" == c.id|stringformat:"s" %}selected{% endif %}>
+            {{ c.nome }}
+          </option>
+        {% endfor %}
+      </select>
+      {% if form.proprietario.errors %}
+        <div class="errors">{{ form.proprietario.errors }}</div>
+      {% endif %}
+    </p>
+
+    <!-- Objeto (veículo) — será populado via AJAX ao escolher o proprietário -->
+    <p>
+      <label for="id_idobjeto">Objeto (veículos cadastrados)</label><br>
+      <select id="id_idobjeto" name="idobjeto">
+        <option value="">(nenhum)</option>
+      </select>
+      {% if form.idobjeto.errors %}
+        <div class="errors">{{ form.idobjeto.errors }}</div>
+      {% endif %}
+    </p>
+
+    <!-- Campos do objeto (preenchidos automaticamente ou manualmente) -->
+    <p>
+      <label for="id_tipo_objeto">Tipo</label><br>
+      {{ form.tipo_objeto }}
+      {% if form.tipo_objeto.errors %}
+        <div class="errors">{{ form.tipo_objeto.errors }}</div>
+      {% endif %}
+    </p>
+
+    <p>
+      <label for="id_marca">Marca</label><br>
+      {{ form.marca }}
+      {% if form.marca.errors %}
+        <div class="errors">{{ form.marca.errors }}</div>
+      {% endif %}
+    </p>
+
+    <p>
+      <label for="id_modelo">Modelo</label><br>
+      {{ form.modelo }}
+      {% if form.modelo.errors %}
+        <div class="errors">{{ form.modelo.errors }}</div>
+      {% endif %}
+    </p>
+
+    <p>
+      <label for="id_placa">Placa</label><br>
+      {{ form.placa }}
+      {% if form.placa.errors %}
+        <div class="errors">{{ form.placa.errors }}</div>
+      {% endif %}
+    </p>
+
+    <!-- Descrição do objeto - gerada automaticamente, readonly -->
+    <p>
+      <label for="id_descricaoobjeto">Descrição do objeto (gerada)</label><br>
       {{ form.descricaoobjeto }}
       {% if form.descricaoobjeto.errors %}
         <div class="errors">{{ form.descricaoobjeto.errors }}</div>
       {% endif %}
     </p>
 
+    <!-- Campos restantes -->
     <p>
       {{ form.defeito.label_tag }}<br>
       {{ form.defeito }}
@@ -36,7 +98,6 @@
       {% endif %}
     </p>
 
-    <!-- campos adicionais (sem idpedido/idresponsavel/idmecanico) -->
     <p>
       {{ form.nome_cliente.label_tag }}<br>
       {{ form.nome_cliente }}
@@ -54,26 +115,10 @@
     </p>
 
     <p>
-      {{ form.placa.label_tag }}<br>
-      {{ form.placa }}
-      {% if form.placa.errors %}
-        <div class="errors">{{ form.placa.errors }}</div>
-      {% endif %}
-    </p>
-
-    <p>
       {{ form.localizacao.label_tag }}<br>
       {{ form.localizacao }}
       {% if form.localizacao.errors %}
         <div class="errors">{{ form.localizacao.errors }}</div>
-      {% endif %}
-    </p>
-
-    <p>
-      {{ form.proprietario.label_tag }}<br>
-      {{ form.proprietario }}
-      {% if form.proprietario.errors %}
-        <div class="errors">{{ form.proprietario.errors }}</div>
       {% endif %}
     </p>
 
@@ -154,4 +199,107 @@
       <a href="{% url 'os_app:listar_os' %}" style="margin-left:8px">Voltar ao painel</a>
     </p>
   </form>
+
+  {# ---------- JavaScript: popula selects e gera descrição ---------- #}
+  {# URLs usadas pelo JS: montamos dois padrões com 0 para substituir no JS #}
+  {% comment %}
+    A URL abaixo produz algo como /os/api/objetos/por-proprietario/0/
+    iremos substituir o 0 dinamicamente no JS.
+  {% endcomment %}
+  <script>
+    (function(){
+      // endpoints (substituir o '0' pela id real)
+      const apiPorProprietario = "{% url 'os_app:api_objetos_por_proprietario' 0 %}";
+      const apiObjetoDetail = "{% url 'os_app:api_objeto_detail' 0 %}";
+
+      function qs(id){ return document.getElementById(id); }
+
+      // marcar descricao como readonly (se field foi renderizado com id 'id_descricaoobjeto')
+      const descEl = qs('id_descricaoobjeto');
+      if(descEl) descEl.readOnly = true;
+
+      const proprietarioEl = qs('id_proprietario');
+      const idobjEl = qs('id_idobjeto');
+      const tipoEl = qs('id_tipo_objeto');
+      const marcaEl = qs('id_marca');
+      const modeloEl = qs('id_modelo');
+      const placaEl = qs('id_placa');
+
+      function montarDescricao(){
+        const tipo = (tipoEl && tipoEl.value) ? tipoEl.value.trim() : '';
+        const marca = (marcaEl && marcaEl.value) ? marcaEl.value.trim() : '';
+        const modelo = (modeloEl && modeloEl.value) ? modeloEl.value.trim() : '';
+        const placa = (placaEl && placaEl.value) ? placaEl.value.trim() : '';
+        const partes = [];
+        if(tipo) partes.push(tipo);
+        if(marca) partes.push(marca);
+        if(modelo) partes.push(modelo);
+        let s = partes.join(' - ');
+        if(placa) s = (s ? (s + ' - ') : '') + 'PLACA: ' + placa;
+        if(descEl) descEl.value = s;
+      }
+
+      // ao mudar proprietario -> buscar objetos daquele cliente
+      if(proprietarioEl){
+        proprietarioEl.addEventListener('change', function(){
+          const cid = this.value;
+          // limpar select de objetos
+          if(idobjEl) {
+            idobjEl.innerHTML = '<option value="">(nenhum)</option>';
+          }
+          if(!cid) return;
+          const url = apiPorProprietario.replace('/0/', '/' + encodeURIComponent(cid) + '/');
+          fetch(url).then(r => r.json()).then(data => {
+            if(data && data.objects && idobjEl){
+              data.objects.forEach(o => {
+                const opt = document.createElement('option');
+                opt.value = o.id;
+                opt.text = o.label;
+                idobjEl.appendChild(opt);
+              });
+            }
+          }).catch(err => {
+            console.error('Erro ao buscar objetos:', err);
+          });
+        });
+      }
+
+      // ao mudar objeto -> obter dados do objeto e preencher campos
+      if(idobjEl){
+        idobjEl.addEventListener('change', function(){
+          const oid = this.value;
+          if(!oid){
+            // limpar campos
+            if(tipoEl) tipoEl.value = '';
+            if(marcaEl) marcaEl.value = '';
+            if(modeloEl) modeloEl.value = '';
+            if(placaEl) placaEl.value = '';
+            montarDescricao();
+            return;
+          }
+          const url = apiObjetoDetail.replace('/0/', '/' + encodeURIComponent(oid) + '/');
+          fetch(url).then(r => r.json()).then(data => {
+            if(data && !data.error){
+              if(tipoEl) tipoEl.value = data.tipo || '';
+              if(marcaEl) marcaEl.value = data.marca || '';
+              if(modeloEl) modeloEl.value = data.modelo || '';
+              if(placaEl) placaEl.value = data.placa || '';
+              montarDescricao();
+            }
+          }).catch(err => {
+            console.error('Erro ao obter detalhe do objeto:', err);
+          });
+        });
+      }
+
+      // também atualizar descricao quando usuário edita os campos manualmente
+      [tipoEl, marcaEl, modeloEl, placaEl].forEach(function(el){
+        if(!el) return;
+        el.addEventListener('input', montarDescricao);
+      });
+
+      // montar descrição no load (útil quando o form estiver preenchido por edição)
+      document.addEventListener('DOMContentLoaded', function(){ montarDescricao(); });
+    })();
+  </script>
 {% endblock %}

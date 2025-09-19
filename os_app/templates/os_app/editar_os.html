@@ -11,6 +11,8 @@
   <form method="post" novalidate>
     {% csrf_token %}
     <div class="row g-3">
+
+      {# --- Descrição gerada / Defeito --- #}
       <div class="col-12">
         <label class="form-label">{{ form.descricaoobjeto.label }}</label>
         {{ form.descricaoobjeto }}
@@ -23,6 +25,30 @@
         {% if form.defeito.errors %}<div class="text-danger small">{{ form.defeito.errors }}</div>{% endif %}
       </div>
 
+      {# --- Campos do objeto / vínculo com objeto cadastrado --- #}
+      {# Mantemos o campo idobjeto (se existir no form) escondido, para ser enviado ao POST #}
+      <div class="d-none">
+        {% if form.idobjeto %}{{ form.idobjeto }}{% endif %}
+      </div>
+
+      <div class="col-md-3">
+        <label class="form-label">Tipo</label>
+        {% if form.tipo_objeto %}{{ form.tipo_objeto }}{% else %}<input id="id_tipo_objeto" class="form-control">{% endif %}
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Marca</label>
+        {% if form.marca %}{{ form.marca }}{% else %}<input id="id_marca" class="form-control">{% endif %}
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Modelo</label>
+        {% if form.modelo %}{{ form.modelo }}{% else %}<input id="id_modelo" class="form-control">{% endif %}
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Placa</label>
+        {% if form.placa %}{{ form.placa }}{% else %}<input id="id_placa" class="form-control">{% endif %}
+      </div>
+
+      {# --- Usuário / Cliente / Email --- #}
       <div class="col-md-4">
         <label class="form-label">{{ form.idusuario.label }}</label>
         {{ form.idusuario }}
@@ -36,6 +62,7 @@
         {{ form.email_cliente }}
       </div>
 
+      {# --- Placa/Localização/Proprietário (mantidos) --- #}
       <div class="col-md-4">
         <label class="form-label">{{ form.placa.label }}</label>
         {{ form.placa }}
@@ -49,6 +76,7 @@
         {{ form.proprietario }}
       </div>
 
+      {# --- demais campos --- #}
       <div class="col-md-4">
         <label class="form-label">{{ form.natureza.label }}</label>
         {{ form.natureza }}
@@ -95,4 +123,126 @@
       </div>
     </div>
   </form>
+
+  {# ------------------ JS: preencher campos do objeto quando editar ------------------ #}
+  <script>
+    (function(){
+      // endpoints com placeholder 0 (será substituído)
+      const apiObjetoDetail = "{% url 'os_app:api_objeto_detail' 0 %}";
+      const apiPorProprietario = "{% url 'os_app:api_objetos_por_proprietario' 0 %}";
+
+      function qs(id){ return document.getElementById(id); }
+
+      // elementos (pode ser que alguns venham do form.render)
+      const idObjField = qs('id_idobjeto') || qs('id_idobjeto'); // pode ser input hidden ou select
+      const tipoEl = qs('id_tipo_objeto') || qs('id_tipo_objeto');
+      const marcaEl = qs('id_marca') || qs('id_marca');
+      const modeloEl = qs('id_modelo') || qs('id_modelo');
+      const placaEl = qs('id_placa') || qs('id_placa');
+      const descEl = qs('id_descricaoobjeto');
+      const proprietarioSelect = qs('id_proprietario'); // pode não existir no contexto de edição
+
+      // tornar descricao readonly para evitar edição manual (mas ainda enviada no POST)
+      if(descEl) descEl.readOnly = true;
+
+      function montarDescricao(){
+        const t = tipoEl && tipoEl.value ? tipoEl.value.trim() : '';
+        const m = marcaEl && marcaEl.value ? marcaEl.value.trim() : '';
+        const mo = modeloEl && modeloEl.value ? modeloEl.value.trim() : '';
+        const p = placaEl && placaEl.value ? placaEl.value.trim() : '';
+        const parts = [];
+        if(t) parts.push(t);
+        if(m) parts.push(m);
+        if(mo) parts.push(mo);
+        let s = parts.join(' - ');
+        if(p) s = (s ? (s + ' - ') : '') + 'PLACA: ' + p;
+        if(descEl) descEl.value = s;
+      }
+
+      // preencher campos a partir do detalhe do objeto via API
+      function preencherPorObjeto(id){
+        if(!id) return;
+        const url = apiObjetoDetail.replace('/0/', '/' + encodeURIComponent(id) + '/');
+        fetch(url)
+          .then(r => r.json())
+          .then(data => {
+            if(!data || data.error) return;
+            if(tipoEl) tipoEl.value = data.tipo || '';
+            if(marcaEl) marcaEl.value = data.marca || '';
+            if(modeloEl) modeloEl.value = data.modelo || '';
+            if(placaEl) placaEl.value = data.placa || '';
+            montarDescricao();
+          })
+          .catch(err => console.error('Erro ao obter detalhe do objeto:', err));
+      }
+
+      // caso o form contenha idobjeto preenchido (valor inicial), preencher ao carregar
+      document.addEventListener('DOMContentLoaded', function(){
+        // 1) se existirem selects de proprietario + objeto (como no abrir_os), mantemos compatibilidade:
+        if(proprietarioSelect){
+          // se existir, ao mudar proprietario vamos popular select de objetos (se houver id_idobjeto)
+          proprietarioSelect.addEventListener('change', function(){
+            const cid = this.value;
+            const objetosSelect = qs('id_idobjeto');
+            if(objetosSelect) {
+              objetosSelect.innerHTML = '<option value="">(nenhum)</option>';
+            }
+            if(!cid) return;
+            const url = apiPorProprietario.replace('/0/', '/' + encodeURIComponent(cid) + '/');
+            fetch(url).then(r => r.json()).then(data => {
+              if(data && data.objects && objetosSelect){
+                data.objects.forEach(o => {
+                  const opt = document.createElement('option');
+                  opt.value = o.id;
+                  opt.text = o.label;
+                  objetosSelect.appendChild(opt);
+                });
+              }
+            }).catch(err => console.error('Erro ao buscar objetos:', err));
+          });
+
+          // se existir select de objetos e já houver um value inicial no form (idobjeto), marcar opção e preencher
+          const objetosSelectInit = qs('id_idobjeto');
+          try {
+            // pega o id do objeto vindo de 'os' (preferível) ou string vazia
+            const existing = "{{ os.idobjeto|default:''|escapejs }}";
+            if(objetosSelectInit && existing){
+              // adicionar opção inicial com o id (para o caso em que o select não foi povoado)
+              const opt = document.createElement('option');
+              opt.value = existing;
+              opt.text = 'Carregando...';
+              objetosSelectInit.appendChild(opt);
+              objetosSelectInit.value = existing;
+              preencherPorObjeto(existing);
+            }
+          } catch(e){}
+        }
+
+        // 2) se não houver select de proprietario (edição simples), mas existir idobjeto em 'os', preencher direto:
+        try {
+          const osIdObj = "{{ os.idobjeto|default:''|escapejs }}";
+          // prioriza o value do campo do form (se o widget colocou o valor)
+          let idFromField = '';
+          if(idObjField && idObjField.value) idFromField = idObjField.value;
+          const finalId = idFromField || osIdObj;
+          if(finalId){
+            preencherPorObjeto(finalId);
+            // também garantir que o hidden/input idobjeto tenha esse valor
+            if(idObjField && !idObjField.value) idObjField.value = finalId;
+          } else {
+            // sem idobj -> montar descricao com os valores já existentes (se houver)
+            montarDescricao();
+          }
+        } catch(e){
+          montarDescricao();
+        }
+
+        // 3) ao editar manualmente campos do objeto, sempre re-montar descricao
+        [tipoEl, marcaEl, modeloEl, placaEl].forEach(function(el){
+          if(!el) return;
+          el.addEventListener('input', montarDescricao);
+        });
+      });
+    })();
+  </script>
 {% endblock %}

@@ -2,20 +2,101 @@
 {% block content %}
   <div class="text-center">
     <h3 class="mb-3">OS criada com sucesso</h3>
+
     <div class="mb-3">
       <strong>ID:</strong>
       {% if os.idordem %}{{ os.idordem }}{% elif os.id %}{{ os.id }}{% else %}-{% endif %}
+      {% if os.idobjeto %}
+        &nbsp;•&nbsp;<strong>ID objeto:</strong> {{ os.idobjeto }}
+      {% endif %}
     </div>
 
-    <div class="card p-3 mb-3">
-      <p><strong>Nome / Descrição:</strong><br>{{ os.descricaoobjeto|default:"(sem descrição)" }}</p>
-      <p><strong>Defeito:</strong><br>{{ os.defeito|default:"-"|linebreaks }}</p>
-      <p><strong>Entrada:</strong> {% if os.entrada is not None and os.entrada != "" %}R$ {{ os.entrada|floatformat:2 }}{% else %}-{% endif %}</p>
+    <div class="card p-3 mb-3 text-start">
+      <div class="row gx-3 gy-2">
+        <div class="col-12">
+          <p class="mb-1"><strong>Descrição do objeto:</strong><br>{{ os.descricaoobjeto|default:"(sem descrição)" }}</p>
+        </div>
+
+        <div class="col-md-6">
+          <p class="mb-1"><strong>Proprietário / Cliente:</strong><br>
+            {% if os.nomecliente %}{{ os.nomecliente }}{% elif os.proprietario %}{{ os.proprietario }}{% else %}-{% endif %}
+          </p>
+        </div>
+        <div class="col-md-6">
+          <p class="mb-1"><strong>E-mail:</strong><br>{{ os.emailcliente|default:"-" }}</p>
+        </div>
+
+        <div class="col-md-4">
+          <p class="mb-1"><strong>Placa:</strong><br>{{ os.placa|default:"-" }}</p>
+        </div>
+        <div class="col-md-4">
+          <p class="mb-1"><strong>Marca:</strong><br>{{ os.marca|default:"-" }}</p>
+        </div>
+        <div class="col-md-4">
+          <p class="mb-1"><strong>Modelo / Cor:</strong><br>
+            {% if os.modelo %}{{ os.modelo }}{% else %}-{% endif %}
+            {% if os.cor %} / {{ os.cor }}{% endif %}
+          </p>
+        </div>
+
+        <div class="col-md-4">
+          <p class="mb-1"><strong>Entrada:</strong><br>
+            {% if os.entrada is not None and os.entrada != "" %}R$ {{ os.entrada|floatformat:2 }}{% else %}-{% endif %}
+          </p>
+        </div>
+
+        <div class="col-md-8">
+          <p class="mb-1"><strong>Situação:</strong><br>{{ os.situacao|default:"-" }}</p>
+        </div>
+
+        <div class="col-12">
+          <p class="mb-1"><strong>Defeito:</strong><br>{{ os.defeito|default:"-"|linebreaks }}</p>
+        </div>
+
+        {% if os.observacoes %}
+        <div class="col-12">
+          <p class="mb-1"><strong>Observações:</strong><br>{{ os.observacoes|linebreaks }}</p>
+        </div>
+        {% endif %}
+
+        <div class="col-md-6">
+          <p class="mb-1"><strong>Técnico:</strong><br>{{ os.tecnico|default:"-" }}</p>
+        </div>
+        <div class="col-md-6">
+          <p class="mb-1"><strong>Vendedor:</strong><br>{{ os.vendedor|default:"-" }}</p>
+        </div>
+
+        <div class="col-md-6">
+          <p class="mb-1"><strong>Previsão:</strong><br>
+            {% if os.previsaodata %}{{ os.previsaodata|date:"d/m/Y" }}{% endif %}
+            {% if os.previsaohora %} {{ os.previsaohora|time:"H:i" }}{% endif %}
+            {% if not os.previsaodata and not os.previsaohora %}-{% endif %}
+          </p>
+        </div>
+
+        <div class="col-md-6">
+          <p class="mb-1"><strong>Abertura:</strong><br>
+            {% if os.aberturadata %}{{ os.aberturadata|date:"d/m/Y" }}{% endif %}
+            {% if os.aberturahora %} {{ os.aberturahora|time:"H:i" }}{% endif %}
+            {% if not os.aberturadata and not os.aberturahora %}-{% endif %}
+          </p>
+        </div>
+      </div>
     </div>
 
-    <div>
+    <div class="d-flex justify-content-center gap-2">
       <a class="btn btn-primary" href="{% url 'os_app:abrir_os' %}">Abrir outra</a>
       <a class="btn btn-outline-secondary" href="{% url 'os_app:listar_os' %}">Ver painel</a>
+
+      {# link Editar OS: usar if/elif para escolher a PK de forma segura #}
+      {% if os.idordem %}
+        <a class="btn btn-outline-secondary" href="{% url 'os_app:editar_os' os.idordem %}">Editar OS</a>
+      {% elif os.id %}
+        <a class="btn btn-outline-secondary" href="{% url 'os_app:editar_os' os.id %}">Editar OS</a>
+      {% else %}
+        <a class="btn btn-outline-secondary disabled" href="#" aria-disabled="true">Editar OS</a>
+      {% endif %}
+
     </div>
   </div>
 {% endblock %}
