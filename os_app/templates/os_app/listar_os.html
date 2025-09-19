@@ -1,11 +1,25 @@
-{# os_app/templates/os_app/listar_os.html #}
 {% extends "base.html" %}
 {% block content %}
-  <h1>Ordens de Serviço</h1>
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="h4">Ordens de Serviço</h2>
+    <a class="btn btn-primary btn-sm" href="{% url 'os_app:abrir_os' %}"><i class="bi bi-plus-lg"></i> Abrir nova OS</a>
+  </div>
 
-  {% if ordens %}
-    <table>
-      <thead>
+  <div class="table-wrap">
+    <table class="table table-hover align-middle">
+      <colgroup>
+        <col style="width:60px">         {# ID #}
+        <col style="width:35%">          {# Descrição (maior) #}
+        <col style="width:100px">        {# Status #}
+        <col style="width:120px">        {# Abertura #}
+        <col style="width:35%">          {# Placa (agora igual à Descrição) #}
+        <col style="width:140px">        {# Proprietário #}
+        <col style="width:110px">        {# Entrada #}
+        <col style="width:120px">        {# Previsão #}
+        <col>                            {# Ações (auto) #}
+      </colgroup>
+
+      <thead class="table-light">
         <tr>
           <th>ID</th>
           <th>Descrição</th>
@@ -21,48 +35,62 @@
       <tbody>
         {% for o in ordens %}
         <tr>
-          <td>{% if o.idordem %}{{ o.idordem }}{% elif o.id %}{{ o.id }}{% else %}-{% endif %}</td>
-          <td>{{ o.descricaoobjeto|default:"(sem descrição)" }}</td>
-          <td>{{ o.situacao|default:"-" }}</td>
-          <td>
+          <td class="fw-bold align-top">
+            {% if o.idordem %}{{ o.idordem }}{% elif o.id %}{{ o.id }}{% else %}-{% endif %}
+          </td>
+
+          <td style="white-space:normal; word-wrap:break-word; padding-top:0.6rem;">
+            {{ o.descricaoobjeto|default:"(sem descrição)" }}
+          </td>
+
+          <td class="align-top">
+            <span class="badge {% if o.situacao == 'CANCELADA' %}bg-secondary{% elif o.situacao == 'REGISTRADA' %}bg-info text-dark{% else %}bg-success{% endif %}">
+              {{ o.situacao|default:"-" }}
+            </span>
+          </td>
+
+          <td class="align-top">
             {% if o.aberturadata %}{{ o.aberturadata|date:"d/m/Y" }}{% endif %}
             {% if o.aberturahora %} {{ o.aberturahora|time:"H:i" }}{% endif %}
-            {% if not o.aberturadata and not o.aberturahora %}-{% endif %}
           </td>
-          <td>{{ o.placa|default:"-" }}</td>
-          <td>{{ o.proprietario|default:"-" }}</td>
-          <td>
-            {% if o.entrada is not None and o.entrada != "" %}
-              R$ {{ o.entrada|floatformat:2 }}
-            {% else %}
-              -
-            {% endif %}
+
+          <td class="align-top" style="white-space:normal; word-wrap:break-word; padding-top:0.6rem;">
+            {{ o.placa|default:"-" }}
           </td>
-          <td>
+
+          <td class="align-top">{{ o.proprietario|default:"-" }}</td>
+          <td class="align-top">{% if o.entrada is not None and o.entrada != "" %}R$ {{ o.entrada|floatformat:2 }}{% else %}-{% endif %}</td>
+
+          <td class="align-top">
             {% if o.previsao_data or o.previsao_hora %}
               {% if o.previsao_data %}{{ o.previsao_data|date:"d/m/Y" }}{% endif %}
               {% if o.previsao_hora %} {{ o.previsao_hora|time:"H:i" }}{% endif %}
-            {% else %}
-              -
-            {% endif %}
+            {% else %}-{% endif %}
           </td>
 
-          <td class="actions">
-            {# gerar links/ forms escolhendo o id existente (idordem ou id) #}
+          <td class="align-top">
             {% if o.idordem %}
-              <a href="{% url 'os_app:editar_os' o.idordem %}">Editar</a>
+              <div class="d-flex flex-wrap justify-content-end gap-2">
+                <a class="btn btn-primary btn-sm action-btn" href="{% url 'os_app:editar_os' o.idordem %}">Editar</a>
 
-              <form action="{% url 'os_app:cancelar_os' o.idordem %}" method="post" style="display:inline" class="confirm-delete">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-warning" onclick="return confirm('Confirma cancelamento da OS {{ o.idordem }}?')">Cancelar</button>
-              </form>
+                <form action="{% url 'os_app:cancelar_os' o.idordem %}" method="post" class="m-0">
+                  {% csrf_token %}
+                  <button class="btn btn-primary btn-sm action-btn cancel-on-hover" type="submit"
+                    onclick="return confirm('Confirma cancelamento da OS {{ o.idordem }}?')">Cancelar</button>
+                </form>
+              </div>
+
             {% elif o.id %}
-              <a href="{% url 'os_app:editar_os' o.id %}">Editar</a>
+              <div class="d-flex flex-wrap justify-content-end gap-2">
+                <a class="btn btn-primary btn-sm action-btn" href="{% url 'os_app:editar_os' o.id %}">Editar</a>
 
-              <form action="{% url 'os_app:cancelar_os' o.id %}" method="post" style="display:inline" class="confirm-delete">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-warning" onclick="return confirm('Confirma cancelamento da OS {{ o.id }}?')">Cancelar</button>
-              </form>
+                <form action="{% url 'os_app:cancelar_os' o.id %}" method="post" class="m-0">
+                  {% csrf_token %}
+                  <button class="btn btn-primary btn-sm action-btn cancel-on-hover" type="submit"
+                    onclick="return confirm('Confirma cancelamento da OS {{ o.id }}?')">Cancelar</button>
+                </form>
+              </div>
+
             {% else %}
               -
             {% endif %}
@@ -71,11 +99,43 @@
         {% endfor %}
       </tbody>
     </table>
-  {% else %}
-    <p>Não há ordens cadastradas.</p>
-  {% endif %}
+  </div>
 
-  <p style="margin-top:12px">
-    <a class="btn" href="{% url 'os_app:abrir_os' %}">Abrir nova OS</a>
-  </p>
+  <style>
+    /* uniformiza largura/altura dos botões de ação */
+    .action-btn{
+      min-width:92px;
+      border-radius:999px;
+      padding-left:10px;
+      padding-right:10px;
+      transition: background-color .18s ease, border-color .18s ease, color .18s ease;
+    }
+
+    /* comportamento: botão azul por padrão, fica vermelho ao hover/focus */
+    .action-btn { /* já é btn-primary pela classe bootstrap */
+      /* nada extra aqui */
+    }
+    /* estilo específico para o botão cancelar (muda no hover) */
+    .cancel-on-hover:hover,
+    .cancel-on-hover:focus,
+    .cancel-on-hover:active {
+      background-color: #dc3545 !important;   /* vermelho bootstrap */
+      border-color: #dc3545 !important;
+      color: #fff !important;
+      box-shadow: none !important;
+    }
+
+    /* opção: mudar também o editar no hover para ficar vermelho se preferir,
+       se não quiser, remova a linha abaixo. Atualmente deixamos só o cancelar mudando. */
+    .action-btn:hover { /* opcional: sutil escurecer o azul */
+      filter: brightness(0.95);
+    }
+
+    @media (max-width:760px){
+      .action-btn{ min-width:72px; }
+    }
+
+    /* vertical align */
+    table.table td, table.table th { vertical-align: middle; }
+  </style>
 {% endblock %}

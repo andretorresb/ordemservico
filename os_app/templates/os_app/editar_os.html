@@ -1,158 +1,98 @@
-{# os_app/templates/os_app/editar_os.html #}
 {% extends "base.html" %}
 {% block content %}
-  <h1>Editar OS #
-    {% if os.idordem %}{{ os.idordem }}
-    {% elif os.id %}{{ os.id }}
-    {% else %}-{% endif %}
-  </h1>
+  <h2 class="h5 mb-3">Editar OS #
+    {% if os.idordem %}{{ os.idordem }}{% elif os.id %}{{ os.id }}{% else %}-{% endif %}
+  </h2>
 
   {% if form.non_field_errors %}
-    <div class="errors">
-      {{ form.non_field_errors }}
-    </div>
+    <div class="alert alert-danger">{{ form.non_field_errors }}</div>
   {% endif %}
-
-  <style>
-    /* pequeno estilo local para organizar o form em duas colunas */
-    .form-grid{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:16px;
-      align-items:start;
-    }
-    .form-full{ grid-column: 1 / 3; }
-    .form-actions{ margin-top:16px; grid-column: 1 / 3; }
-    label{ display:block; margin-bottom:6px; font-weight:600; }
-    /* estilização genérica para inputs/textarea já que não estamos injetando classes */
-    .form-grid input, .form-grid textarea, .form-grid select {
-      width:100%;
-      padding:6px 8px;
-      border:1px solid #d1d5da;
-      border-radius:4px;
-      box-sizing:border-box;
-      font-size:14px;
-    }
-    .form-grid textarea { min-height:90px; }
-    @media (max-width:720px){
-      .form-grid{ grid-template-columns: 1fr; }
-      .form-full{ grid-column: auto; }
-      .form-actions{ grid-column: auto; }
-    }
-  </style>
 
   <form method="post" novalidate>
     {% csrf_token %}
-
-    <div class="form-grid">
-
-      <div class="form-full">
-        <label>{{ form.descricaoobjeto.label }}</label>
+    <div class="row g-3">
+      <div class="col-12">
+        <label class="form-label">{{ form.descricaoobjeto.label }}</label>
         {{ form.descricaoobjeto }}
-        {% if form.descricaoobjeto.errors %}<div class="errors">{{ form.descricaoobjeto.errors }}</div>{% endif %}
+        {% if form.descricaoobjeto.errors %}<div class="text-danger small">{{ form.descricaoobjeto.errors }}</div>{% endif %}
       </div>
 
-      <div class="form-full">
-        <label>{{ form.defeito.label }}</label>
+      <div class="col-12">
+        <label class="form-label">{{ form.defeito.label }}</label>
         {{ form.defeito }}
-        {% if form.defeito.errors %}<div class="errors">{{ form.defeito.errors }}</div>{% endif %}
+        {% if form.defeito.errors %}<div class="text-danger small">{{ form.defeito.errors }}</div>{% endif %}
       </div>
 
-      <div>
-        <label>{{ form.idusuario.label }}</label>
+      <div class="col-md-4">
+        <label class="form-label">{{ form.idusuario.label }}</label>
         {{ form.idusuario }}
-        {% if form.idusuario.errors %}<div class="errors">{{ form.idusuario.errors }}</div>{% endif %}
       </div>
-
-      <div>
-        <label>{{ form.nome_cliente.label }}</label>
+      <div class="col-md-4">
+        <label class="form-label">{{ form.nome_cliente.label }}</label>
         {{ form.nome_cliente }}
-        {% if form.nome_cliente.errors %}<div class="errors">{{ form.nome_cliente.errors }}</div>{% endif %}
       </div>
-
-      <div>
-        <label>{{ form.email_cliente.label }}</label>
+      <div class="col-md-4">
+        <label class="form-label">{{ form.email_cliente.label }}</label>
         {{ form.email_cliente }}
-        {% if form.email_cliente.errors %}<div class="errors">{{ form.email_cliente.errors }}</div>{% endif %}
       </div>
 
-      <div>
-        <label>{{ form.placa.label }}</label>
+      <div class="col-md-4">
+        <label class="form-label">{{ form.placa.label }}</label>
         {{ form.placa }}
-        {% if form.placa.errors %}<div class="errors">{{ form.placa.errors }}</div>{% endif %}
       </div>
-
-      <div>
-        <label>{{ form.localizacao.label }}</label>
+      <div class="col-md-4">
+        <label class="form-label">{{ form.localizacao.label }}</label>
         {{ form.localizacao }}
-        {% if form.localizacao.errors %}<div class="errors">{{ form.localizacao.errors }}</div>{% endif %}
       </div>
-
-      <div>
-        <label>{{ form.proprietario.label }}</label>
+      <div class="col-md-4">
+        <label class="form-label">{{ form.proprietario.label }}</label>
         {{ form.proprietario }}
-        {% if form.proprietario.errors %}<div class="errors">{{ form.proprietario.errors }}</div>{% endif %}
       </div>
 
-      <div>
-        <label>{{ form.natureza.label }}</label>
+      <div class="col-md-4">
+        <label class="form-label">{{ form.natureza.label }}</label>
         {{ form.natureza }}
-        {% if form.natureza.errors %}<div class="errors">{{ form.natureza.errors }}</div>{% endif %}
       </div>
-
-      <div>
-        <label>{{ form.cond_pagto.label }}</label>
+      <div class="col-md-4">
+        <label class="form-label">{{ form.cond_pagto.label }}</label>
         {{ form.cond_pagto }}
-        {% if form.cond_pagto.errors %}<div class="errors">{{ form.cond_pagto.errors }}</div>{% endif %}
       </div>
-
-      <div>
-        <label>{{ form.previsao_data.label }}</label>
-        {{ form.previsao_data }}
-        {% if form.previsao_data.errors %}<div class="errors">{{ form.previsao_data.errors }}</div>{% endif %}
-      </div>
-
-      <div>
-        <label>{{ form.previsao_hora.label }}</label>
-        {{ form.previsao_hora }}
-        {% if form.previsao_hora.errors %}<div class="errors">{{ form.previsao_hora.errors }}</div>{% endif %}
-      </div>
-
-      <div>
-        <label>{{ form.vendedor.label }}</label>
-        {{ form.vendedor }}
-        {% if form.vendedor.errors %}<div class="errors">{{ form.vendedor.errors }}</div>{% endif %}
-      </div>
-
-      <div>
-        <label>{{ form.tecnico.label }}</label>
-        {{ form.tecnico }}
-        {% if form.tecnico.errors %}<div class="errors">{{ form.tecnico.errors }}</div>{% endif %}
-      </div>
-
-      <div class="form-full">
-        <label>{{ form.pertencentes.label }}</label>
-        {{ form.pertencentes }}
-        {% if form.pertencentes.errors %}<div class="errors">{{ form.pertencentes.errors }}</div>{% endif %}
-      </div>
-
-      <div class="form-full">
-        <label>{{ form.observacoes.label }}</label>
-        {{ form.observacoes }}
-        {% if form.observacoes.errors %}<div class="errors">{{ form.observacoes.errors }}</div>{% endif %}
-      </div>
-
-      <div>
-        <label>{{ form.entrada.label }}</label>
+      <div class="col-md-4">
+        <label class="form-label">{{ form.entrada.label }}</label>
         {{ form.entrada }}
-        {% if form.entrada.errors %}<div class="errors">{{ form.entrada.errors }}</div>{% endif %}
       </div>
 
-      <div class="form-actions">
-        <button class="btn" type="submit">Salvar</button>
-        <a href="{% url 'os_app:listar_os' %}" style="margin-left:8px">Cancelar</a>
+      <div class="col-md-4">
+        <label class="form-label">{{ form.previsao_data.label }}</label>
+        {{ form.previsao_data }}
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">{{ form.previsao_hora.label }}</label>
+        {{ form.previsao_hora }}
       </div>
 
+      <div class="col-md-6">
+        <label class="form-label">{{ form.vendedor.label }}</label>
+        {{ form.vendedor }}
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">{{ form.tecnico.label }}</label>
+        {{ form.tecnico }}
+      </div>
+
+      <div class="col-12">
+        <label class="form-label">{{ form.pertencentes.label }}</label>
+        {{ form.pertencentes }}
+      </div>
+      <div class="col-12">
+        <label class="form-label">{{ form.observacoes.label }}</label>
+        {{ form.observacoes }}
+      </div>
+
+      <div class="col-12 d-flex gap-2">
+        <button class="btn btn-success" type="submit">Salvar</button>
+        <a class="btn btn-outline-secondary" href="{% url 'os_app:listar_os' %}">Cancelar</a>
+      </div>
     </div>
   </form>
 {% endblock %}

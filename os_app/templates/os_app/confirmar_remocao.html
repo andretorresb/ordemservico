@@ -1,45 +1,19 @@
 {# os_app/templates/os_app/confirmar_remocao.html #}
 {% extends "base.html" %}
 {% block content %}
-  <h1>Confirmar cancelamento</h1>
+  <h3>Confirmar cancelamento</h3>
   {% if error %}
-    <div class="errors">{{ error }}</div>
+    <div class="alert alert-danger">{{ error }}</div>
   {% endif %}
 
-  <p>Deseja realmente Cancelar a OS <strong>#
-    {% if os.idordem %}{{ os.idordem }}
-    {% elif os.id %}{{ os.id }}
-    {% else %}-{% endif %}
+  <p>Deseja realmente cancelar a OS <strong>
+    {% if os.idordem %}{{ os.idordem }}{% elif os.id %}{{ os.id }}{% else %}-{% endif %}
   </strong> - {{ os.descricaoobjeto|default:"(sem descrição)" }}?</p>
 
-  <div style="margin:12px 0; padding:8px; border:1px solid #ddd; background:#fafafa;">
-    <p><strong>Empresa:</strong> {{ os.empresa|default:"-" }}</p>
-    <p><strong>Placa:</strong> {{ os.placa|default:"-" }}</p>
-    <p><strong>Proprietário:</strong> {{ os.proprietario|default:"-" }}</p>
-    <p><strong>Entrada:</strong>
-      {% if os.entrada is not None and os.entrada != "" %}
-        R$ {{ os.entrada|floatformat:2 }}
-      {% else %}
-        -
-      {% endif %}
-    </p>
-    <p><strong>Previsão:</strong>
-      {% if os.previsao_data or os.previsao_hora %}
-        {% if os.previsao_data %}{{ os.previsao_data|date:"d/m/Y" }}{% endif %}
-        {% if os.previsao_hora %} {{ os.previsao_hora|time:"H:i" }}{% endif %}
-      {% else %}
-        -
-      {% endif %}
-    </p>
-    <p><strong>Status:</strong> {{ os.situacao|default:"-" }}</p>
-  </div>
-
-  {# definir pk usado na url (usa idordem ou id) #}
-  {% with os.idordem|default:os.id as pk %}
-  <form method="post" action="{% url 'os_app:cancelar_os' pk %}">
+  <form method="post">
     {% csrf_token %}
-    <button class="btn btn-danger" type="submit">Sim, cancelar</button>
-    <a href="{% url 'os_app:listar_os' %}" style="margin-left:8px">Cancelar</a>
+    <button class="btn btn-warning" type="submit">Sim, cancelar</button>
+    <a class="btn btn-outline-secondary" href="{% url 'os_app:listar_os' %}">Voltar</a>
   </form>
-  {% endwith %}
 {% endblock %}
+

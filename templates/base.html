@@ -6,43 +6,57 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>{% block title %}Ordem de Serviço - {{ title|default:"Sistema" }}{% endblock %}</title>
 
-  <!-- main stylesheet -->
+  <!-- Bootstrap 5 CSS (CDN) -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="" crossorigin="anonymous">
+
+  <!-- Optional: Bootstrap Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+
+  <!-- Your custom styles (keep existing enhancements) -->
   <link rel="stylesheet" href="{% static 'os_app/css/styles.css' %}">
+  <style>
+    /* small tweaks to work well with bootstrap */
+    body { background: #f6f8fb; }
+    .site-header { background: #fff; border-bottom: 1px solid rgba(0,0,0,0.04); }
+    .card-centered { max-width: 980px; margin: 28px auto; border-radius: 12px; }
+    .table-wrap { overflow-x:auto; }
+    .btn-sm-pill { border-radius: 999px; padding-left:12px; padding-right:12px; }
+  </style>
+  {% block extra_head %}{% endblock %}
 </head>
 <body>
-  <header class="site-header">
-    <div class="header-inner container">
-      <div class="logo">
-        <a href="{% url 'os_app:listar_os' %}">Ordem de Serviço</a>
+  <header class="site-header py-2">
+    <div class="container d-flex align-items-center justify-content-between">
+      <div class="d-flex align-items-center gap-3">
+        <a class="h5 mb-0 text-decoration-none text-primary" href="{% url 'os_app:listar_os' %}">Ordem de Serviço</a>
+        <nav class="d-none d-md-flex gap-2">
+          <a class="text-muted" href="{% url 'os_app:listar_os' %}">Painel</a>
+          <a class="text-muted" href="{% url 'os_app:abrir_os' %}">Abrir OS</a>
+          <a class="text-muted" href="/admin/">Admin</a>
+        </nav>
       </div>
 
-      <nav class="main-nav">
-        <a href="{% url 'os_app:listar_os' %}">Painel</a>
-        <a href="{% url 'os_app:abrir_os' %}">Abrir OS</a>
-        <a href="/admin/">Admin</a>
-      </nav>
-
-      <div class="user-area">
+      <div class="text-end small">
         {% if request.user.is_authenticated %}
           Olá, <strong>{{ request.user.get_short_name|default:request.user.username }}</strong>
-          <a class="link-logout" href="/accounts/logout/">Sair</a>
+          &nbsp;•&nbsp;
+          <a href="/accounts/logout/" class="text-decoration-none">Sair</a>
         {% else %}
-          <a class="link-login" href="/accounts/login/">Entrar</a>
+          <a href="/accounts/login/" class="text-decoration-none">Entrar</a>
         {% endif %}
       </div>
     </div>
   </header>
 
   <main class="container">
-    <div class="card">
-
-      {# Django messages (ex: success / error after POST) #}
+    <div class="card card-centered shadow-sm p-4">
+      <!-- messages -->
       {% if messages %}
-        <div class="messages" aria-live="polite">
+        <div class="mb-3">
           {% for msg in messages %}
-            <div class="message {% if 'success' in msg.tags %}success{% elif 'error' in msg.tags or 'danger' in msg.tags %}error{% elif 'warning' in msg.tags %}warning{% else %}info{% endif %}">
-              <button type="button" class="msg-close" aria-label="Fechar">&times;</button>
-              <div class="msg-content">{{ msg|safe }}</div>
+            <div class="alert {% if 'success' in msg.tags %}alert-success{% elif 'error' in msg.tags or 'danger' in msg.tags %}alert-danger{% elif 'warning' in msg.tags %}alert-warning{% else %}alert-info{% endif %} alert-dismissible fade show" role="alert">
+              {{ msg|safe }}
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
             </div>
           {% endfor %}
         </div>
@@ -51,11 +65,14 @@
       {% block content %}{% endblock %}
     </div>
 
-    <footer class="muted small">
-      Desenvolvimento — DEBUG=True
-    </footer>
+    <p class="text-center text-muted small mt-3">Desenvolvimento — DEBUG=True</p>
   </main>
 
+  <!-- Bootstrap 5 JS (CDN) -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="" crossorigin="anonymous"></script>
+
+  <!-- your script (if any) -->
   <script src="{% static 'os_app/js/scripts.js' %}"></script>
+  {% block extra_js %}{% endblock %}
 </body>
 </html>

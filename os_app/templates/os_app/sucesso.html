@@ -1,52 +1,21 @@
-{# os_app/templates/os_app/sucesso.html #}
 {% extends "base.html" %}
 {% block content %}
-  <h1>OS criada com sucesso</h1>
+  <div class="text-center">
+    <h3 class="mb-3">OS criada com sucesso</h3>
+    <div class="mb-3">
+      <strong>ID:</strong>
+      {% if os.idordem %}{{ os.idordem }}{% elif os.id %}{{ os.id }}{% else %}-{% endif %}
+    </div>
 
-  <p><strong>ID:</strong>
-    {% if os.idordem %}{{ os.idordem }}
-    {% elif os.id %}{{ os.id }}
-    {% else %}-{% endif %}
-  </p>
+    <div class="card p-3 mb-3">
+      <p><strong>Nome / Descrição:</strong><br>{{ os.descricaoobjeto|default:"(sem descrição)" }}</p>
+      <p><strong>Defeito:</strong><br>{{ os.defeito|default:"-"|linebreaks }}</p>
+      <p><strong>Entrada:</strong> {% if os.entrada is not None and os.entrada != "" %}R$ {{ os.entrada|floatformat:2 }}{% else %}-{% endif %}</p>
+    </div>
 
-  <p><strong>Empresa:</strong> {{ os.empresa|default:"-" }}</p>
-
-  <p><strong>Nome / Descrição:</strong><br>{{ os.descricaoobjeto|default:"(sem descrição)" }}</p>
-
-  <p><strong>Defeito:</strong><br>{{ os.defeito|default:"-"|linebreaks }}</p>
-
-  <p><strong>Pertences:</strong><br>{{ os.pertencentes|default:"-"|linebreaks }}</p>
-
-  <p><strong>Proprietário:</strong> {{ os.proprietario|default:"-" }}</p>
-
-  <p><strong>Placa:</strong> {{ os.placa|default:"-" }}</p>
-
-  <p><strong>Entrada:</strong>
-    {% if os.entrada is not None and os.entrada != "" %}
-      R$ {{ os.entrada|floatformat:2 }}
-    {% else %}
-      -
-    {% endif %}
-  </p>
-
-  <p><strong>Previsão:</strong>
-    {% if os.previsao_data or os.previsao_hora %}
-      {% if os.previsao_data %}{{ os.previsao_data|date:"d/m/Y" }}{% endif %}
-      {% if os.previsao_hora %} {{ os.previsao_hora|time:"H:i" }}{% endif %}
-    {% else %}
-      -
-    {% endif %}
-  </p>
-
-  <p><strong>Natureza:</strong> {{ os.natureza|default:"-" }}</p>
-  <p><strong>Condição Pagto:</strong> {{ os.cond_pagto|default:"-" }}</p>
-  <p><strong>Vendedor:</strong> {{ os.vendedor|default:"-" }}</p>
-  <p><strong>Técnico:</strong> {{ os.tecnico|default:"-" }}</p>
-
-  <p><strong>Observações:</strong><br>{{ os.observacoes|default:"-"|linebreaks }}</p>
-
-  <p style="margin-top:12px">
-    <a class="btn" href="{% url 'os_app:abrir_os' %}">Abrir outra</a>
-    <a style="margin-left:8px" href="{% url 'os_app:listar_os' %}">Ver painel</a>
-  </p>
+    <div>
+      <a class="btn btn-primary" href="{% url 'os_app:abrir_os' %}">Abrir outra</a>
+      <a class="btn btn-outline-secondary" href="{% url 'os_app:listar_os' %}">Ver painel</a>
+    </div>
+  </div>
 {% endblock %}
