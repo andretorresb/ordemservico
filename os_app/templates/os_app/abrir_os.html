@@ -1,6 +1,11 @@
 {# os_app/templates/os_app/abrir_os.html #}
 {% extends "base.html" %}
 {% block content %}
+  {# Div que o scripts.js lê para obter os endpoints (substitui o placeholder '0') #}
+  <div id="os-api-urls"
+       data-por-proprietario="{% url 'os_app:api_objetos_por_proprietario' 0 %}"
+       data-obj-detail="{% url 'os_app:api_objeto_detail' 0 %}"></div>
+
   <h1>Abrir Ordem de Serviço</h1>
 
   {% if form.non_field_errors %}
@@ -15,7 +20,7 @@
     <!-- Proprietário (select populado pelo view via 'clients') -->
     <p>
       <label for="id_proprietario">Proprietário</label><br>
-      <select id="id_proprietario" name="proprietario">
+      <select id="id_proprietario" name="proprietario" class="form-select">
         <option value="">-- selecione --</option>
         {% for c in clients %}
           <option value="{{ c.id }}" {% if form.proprietario.value|stringformat:"s" == c.id|stringformat:"s" %}selected{% endif %}>
@@ -31,7 +36,7 @@
     <!-- Objeto (veículo) — será populado via AJAX ao escolher o proprietário -->
     <p>
       <label for="id_idobjeto">Objeto (veículos cadastrados)</label><br>
-      <select id="id_idobjeto" name="idobjeto">
+      <select id="id_idobjeto" name="idobjeto" class="form-select">
         <option value="">(nenhum)</option>
       </select>
       {% if form.idobjeto.errors %}
@@ -81,7 +86,7 @@
       {% endif %}
     </p>
 
-    <!-- Campos restantes -->
+    <!-- Campos restantes (mantive o seu markup original para não quebrar) -->
     <p>
       {{ form.defeito.label_tag }}<br>
       {{ form.defeito }}
@@ -195,111 +200,8 @@
     </p>
 
     <p>
-      <button class="btn" type="submit">Abrir OS</button>
-      <a href="{% url 'os_app:listar_os' %}" style="margin-left:8px">Voltar ao painel</a>
+      <button class="btn btn-primary" type="submit">Abrir OS</button>
+      <a class="btn btn-outline-secondary" href="{% url 'os_app:listar_os' %}" style="margin-left:8px">Voltar ao painel</a>
     </p>
   </form>
-
-  {# ---------- JavaScript: popula selects e gera descrição ---------- #}
-  {# URLs usadas pelo JS: montamos dois padrões com 0 para substituir no JS #}
-  {% comment %}
-    A URL abaixo produz algo como /os/api/objetos/por-proprietario/0/
-    iremos substituir o 0 dinamicamente no JS.
-  {% endcomment %}
-  <script>
-    (function(){
-      // endpoints (substituir o '0' pela id real)
-      const apiPorProprietario = "{% url 'os_app:api_objetos_por_proprietario' 0 %}";
-      const apiObjetoDetail = "{% url 'os_app:api_objeto_detail' 0 %}";
-
-      function qs(id){ return document.getElementById(id); }
-
-      // marcar descricao como readonly (se field foi renderizado com id 'id_descricaoobjeto')
-      const descEl = qs('id_descricaoobjeto');
-      if(descEl) descEl.readOnly = true;
-
-      const proprietarioEl = qs('id_proprietario');
-      const idobjEl = qs('id_idobjeto');
-      const tipoEl = qs('id_tipo_objeto');
-      const marcaEl = qs('id_marca');
-      const modeloEl = qs('id_modelo');
-      const placaEl = qs('id_placa');
-
-      function montarDescricao(){
-        const tipo = (tipoEl && tipoEl.value) ? tipoEl.value.trim() : '';
-        const marca = (marcaEl && marcaEl.value) ? marcaEl.value.trim() : '';
-        const modelo = (modeloEl && modeloEl.value) ? modeloEl.value.trim() : '';
-        const placa = (placaEl && placaEl.value) ? placaEl.value.trim() : '';
-        const partes = [];
-        if(tipo) partes.push(tipo);
-        if(marca) partes.push(marca);
-        if(modelo) partes.push(modelo);
-        let s = partes.join(' - ');
-        if(placa) s = (s ? (s + ' - ') : '') + 'PLACA: ' + placa;
-        if(descEl) descEl.value = s;
-      }
-
-      // ao mudar proprietario -> buscar objetos daquele cliente
-      if(proprietarioEl){
-        proprietarioEl.addEventListener('change', function(){
-          const cid = this.value;
-          // limpar select de objetos
-          if(idobjEl) {
-            idobjEl.innerHTML = '<option value="">(nenhum)</option>';
-          }
-          if(!cid) return;
-          const url = apiPorProprietario.replace('/0/', '/' + encodeURIComponent(cid) + '/');
-          fetch(url).then(r => r.json()).then(data => {
-            if(data && data.objects && idobjEl){
-              data.objects.forEach(o => {
-                const opt = document.createElement('option');
-                opt.value = o.id;
-                opt.text = o.label;
-                idobjEl.appendChild(opt);
-              });
-            }
-          }).catch(err => {
-            console.error('Erro ao buscar objetos:', err);
-          });
-        });
-      }
-
-      // ao mudar objeto -> obter dados do objeto e preencher campos
-      if(idobjEl){
-        idobjEl.addEventListener('change', function(){
-          const oid = this.value;
-          if(!oid){
-            // limpar campos
-            if(tipoEl) tipoEl.value = '';
-            if(marcaEl) marcaEl.value = '';
-            if(modeloEl) modeloEl.value = '';
-            if(placaEl) placaEl.value = '';
-            montarDescricao();
-            return;
-          }
-          const url = apiObjetoDetail.replace('/0/', '/' + encodeURIComponent(oid) + '/');
-          fetch(url).then(r => r.json()).then(data => {
-            if(data && !data.error){
-              if(tipoEl) tipoEl.value = data.tipo || '';
-              if(marcaEl) marcaEl.value = data.marca || '';
-              if(modeloEl) modeloEl.value = data.modelo || '';
-              if(placaEl) placaEl.value = data.placa || '';
-              montarDescricao();
-            }
-          }).catch(err => {
-            console.error('Erro ao obter detalhe do objeto:', err);
-          });
-        });
-      }
-
-      // também atualizar descricao quando usuário edita os campos manualmente
-      [tipoEl, marcaEl, modeloEl, placaEl].forEach(function(el){
-        if(!el) return;
-        el.addEventListener('input', montarDescricao);
-      });
-
-      // montar descrição no load (útil quando o form estiver preenchido por edição)
-      document.addEventListener('DOMContentLoaded', function(){ montarDescricao(); });
-    })();
-  </script>
 {% endblock %}

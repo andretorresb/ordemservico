@@ -2,9 +2,28 @@
 from django import forms
 
 class OrdemServicoForm(forms.Form):
+    # campos relacionados ao objeto / descrição
+    idobjeto = forms.IntegerField(
+        required=False,
+        widget=forms.HiddenInput(),
+        label='ID Objeto'
+    )
+    tipo_objeto = forms.CharField(
+        max_length=80, required=False, label='Tipo',
+        widget=forms.TextInput(attrs={'class':'form-control', 'id':'id_tipo_objeto'})
+    )
+    marca = forms.CharField(
+        max_length=80, required=False, label='Marca',
+        widget=forms.TextInput(attrs={'class':'form-control', 'id':'id_marca'})
+    )
+    modelo = forms.CharField(
+        max_length=120, required=False, label='Modelo',
+        widget=forms.TextInput(attrs={'class':'form-control', 'id':'id_modelo'})
+    )
+
     descricaoobjeto = forms.CharField(
         max_length=300, required=False, label='Descrição do objeto',
-        widget=forms.TextInput(attrs={'class':'form-control'})
+        widget=forms.TextInput(attrs={'class':'form-control', 'id':'id_descricaoobjeto'})
     )
     defeito = forms.CharField(
         widget=forms.Textarea(attrs={'rows':4, 'class':'form-control'}),
@@ -15,10 +34,14 @@ class OrdemServicoForm(forms.Form):
         widget=forms.NumberInput(attrs={'class':'form-control'})
     )
 
-    placa = forms.CharField(max_length=32, required=False, label='Placa',
-        widget=forms.TextInput(attrs={'class':'form-control'}))
-    localizacao = forms.CharField(max_length=100, required=False, label='Localização',
-        widget=forms.TextInput(attrs={'class':'form-control'}))
+    placa = forms.CharField(
+        max_length=32, required=False, label='Placa',
+        widget=forms.TextInput(attrs={'class':'form-control', 'id':'id_placa'})
+    )
+    localizacao = forms.CharField(
+        max_length=100, required=False, label='Localização',
+        widget=forms.TextInput(attrs={'class':'form-control'})
+    )
 
     previsao_data = forms.DateField(
         required=False,
@@ -45,19 +68,33 @@ class OrdemServicoForm(forms.Form):
         widget=forms.NumberInput(attrs={'class':'form-control','step':'0.01'})
     )
 
-    proprietario = forms.CharField(max_length=120, required=False, label='Proprietário',
-        widget=forms.TextInput(attrs={'class':'form-control'}))
-    cond_pagto = forms.CharField(max_length=50, required=False, label='Condição Pagto',
-        widget=forms.TextInput(attrs={'class':'form-control'}))
-    natureza = forms.CharField(max_length=80, required=False, label='Natureza',
-        widget=forms.TextInput(attrs={'class':'form-control'}))
+    proprietario = forms.CharField(
+        max_length=120, required=False, label='Proprietário',
+        widget=forms.TextInput(attrs={'class':'form-control'})
+    )
+    cond_pagto = forms.CharField(
+        max_length=50, required=False, label='Condição Pagto',
+        widget=forms.TextInput(attrs={'class':'form-control'})
+    )
+    natureza = forms.CharField(
+        max_length=80, required=False, label='Natureza',
+        widget=forms.TextInput(attrs={'class':'form-control'})
+    )
 
-    vendedor = forms.CharField(max_length=120, required=False, label='Vendedor',
-        widget=forms.TextInput(attrs={'class':'form-control'}))
-    tecnico = forms.CharField(max_length=120, required=False, label='Técnico',
-        widget=forms.TextInput(attrs={'class':'form-control'}))
+    vendedor = forms.CharField(
+        max_length=120, required=False, label='Vendedor',
+        widget=forms.TextInput(attrs={'class':'form-control'})
+    )
+    tecnico = forms.CharField(
+        max_length=120, required=False, label='Técnico',
+        widget=forms.TextInput(attrs={'class':'form-control'})
+    )
 
-    nome_cliente = forms.CharField(max_length=200, required=False, label='Nome / Cliente',
-        widget=forms.TextInput(attrs={'class':'form-control'}))
-    email_cliente = forms.EmailField(required=False, label='Email do cliente',
-        widget=forms.EmailInput(attrs={'class':'form-control'}))
+    nome_cliente = forms.CharField(
+        max_length=200, required=False, label='Nome / Cliente',
+        widget=forms.TextInput(attrs={'class':'form-control'})
+    )
+    email_cliente = forms.EmailField(
+        required=False, label='Email do cliente',
+        widget=forms.EmailInput(attrs={'class':'form-control'})
+    )

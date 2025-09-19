@@ -9,10 +9,11 @@ from .firebird_ops_simple import (
     _get_field_metadata, cancelar_ordem
 )
 from .firebird_db import fb_connect, CHARSET
+import json
 
 TABLE_OS = 'TORDEMSERVICO'
-TABLE_OBJ = 'TORDEMOBJETO'  # tabela de objetos (veículos) conforme seu DB screenshots
-TABLE_CLIENTE = 'TORDECLIENTE'  # tentativa de nome de tabela de clientes (fallback se existir)
+TABLE_OBJ = 'TORDEMOBJETO'  # tabela de objetos (veículos)
+TABLE_CLIENTE = 'TORDECLIENTE'  # tabela de clientes (tentativa - se existir)
 EMPRESA_DEFAULT = getattr(settings, 'EMPRESA_DEFAULT', 1)  # ajuste se necessário
 IDCOL = 'IDORDEM'
 EMPCOL = 'EMPRESA'
@@ -20,15 +21,14 @@ EMPCOL = 'EMPRESA'
 
 def _is_blob_column(meta_entry: dict) -> bool:
     """
-    Heurística para detectar se uma coluna é BLOB a partir do metadata retornado
-    por _get_field_metadata. meta_entry é o dicionário para a coluna.
+    Heurística: considera BLOB quando RDB$FIELD_TYPE == 261 (BLOB) ou quando houver 'subtype'.
+    meta_entry é o dicionário retornado por _get_field_metadata.
     """
     if not meta_entry:
         return False
     t = meta_entry.get('type')
-    if t and str(t).upper() == 'BLOB':
+    if t == 261:  # 261 = BLOB no Firebird
         return True
-    # se existir 'subtype' no metadata, quase sempre indica BLOB/text blob
     if 'subtype' in meta_entry:
         return True
     return False
@@ -45,13 +45,12 @@ def objetos_por_proprietario(request, cliente_id):
     try:
         with fb_connect() as con:
             cur = con.cursor()
-            # buscamos objetos daquele cliente — sem forçar EMPRESA (algumas bases não têm essa coluna aqui)
-            cur.execute("""
+            cur.execute(f"""
                 SELECT IDOBJETO, TIPO, MARCA, MODELO, PLACA
-                FROM %s
+                FROM {TABLE_OBJ}
                 WHERE IDCLIENTE = ?
                 ORDER BY IDOBJETO
-            """ % TABLE_OBJ, (cliente_id,))
+            """, (cliente_id,))
             rows = cur.fetchall()
             cur.close()
 
@@ -71,7 +70,6 @@ def objetos_por_proprietario(request, cliente_id):
             lista.append({'id': idobj, 'label': label})
         return JsonResponse({'objects': lista})
     except Exception as e:
-        # não quebrar; retorna erro para o cliente JS tratar
         return JsonResponse({'error': str(e)}, status=500)
 
 
@@ -82,11 +80,11 @@ def objeto_detail(request, pk):
     try:
         with fb_connect() as con:
             cur = con.cursor()
-            cur.execute("""
+            cur.execute(f"""
                 SELECT IDOBJETO, TIPO, MARCA, MODELO, COR, PLACA
-                FROM %s
+                FROM {TABLE_OBJ}
                 WHERE IDOBJETO = ?
-            """ % TABLE_OBJ, (pk,))
+            """, (pk,))
             row = cur.fetchone()
             cur.close()
 
@@ -113,7 +111,7 @@ def abrir_os(request):
     if request.method == 'POST':
         form = OrdemServicoForm(request.POST)
         if form.is_valid():
-            # Primeiro: montar descrição do objeto usando IDOBJETO (se informado) ou campos manuais
+            # montar descrição do objeto a partir de idobjeto ou campos manuais
             idobj = form.cleaned_data.get('idobjeto') or None
             tipo = (form.cleaned_data.get('tipo_objeto') or '').strip()
             marca = (form.cleaned_data.get('marca') or '').strip()
@@ -121,7 +119,6 @@ def abrir_os(request):
             placa = (form.cleaned_data.get('placa') or '').strip()
 
             descricao_final = ''
-            # tentar montar a partir do objeto cadastrado, se houver id
             if idobj:
                 try:
                     with fb_connect() as con:
@@ -131,42 +128,31 @@ def abrir_os(request):
                         cur.close()
                     if row:
                         tipo_db, marca_db, modelo_db, cor_db, placa_db = row
-                        partes = []
-                        if tipo_db:
-                            partes.append(str(tipo_db))
-                        if marca_db:
-                            partes.append(str(marca_db))
-                        if modelo_db:
-                            partes.append(str(modelo_db))
+                        partes = [p for p in (tipo_db, marca_db, modelo_db) if p]
+                        descricao_final = " - ".join(map(str, partes))
                         placa_val = placa_db or placa
-                        descricao_final = " - ".join(partes)
                         if placa_val:
                             descricao_final = f"{descricao_final} - PLACA: {placa_val}" if descricao_final else f"PLACA: {placa_val}"
                     else:
-                        # se idobj informado mas não achou, construir com campos manuais
                         partes = [p for p in (tipo, marca, modelo) if p]
                         descricao_final = " - ".join(partes)
                         if placa:
                             descricao_final = f"{descricao_final} - PLACA: {placa}" if descricao_final else f"PLACA: {placa}"
                 except Exception:
-                    # em caso de erro ao buscar objeto, fallback para dados manuais
                     partes = [p for p in (tipo, marca, modelo) if p]
                     descricao_final = " - ".join(partes)
                     if placa:
                         descricao_final = f"{descricao_final} - PLACA: {placa}" if descricao_final else f"PLACA: {placa}"
             else:
-                # sem idobj -> montar com campos manuais
                 partes = [p for p in (tipo, marca, modelo) if p]
                 descricao_final = " - ".join(partes)
                 if placa:
                     descricao_final = f"{descricao_final} - PLACA: {placa}" if descricao_final else f"PLACA: {placa}"
 
-            # se o usuário forneceu descricaoobjeto livre e descricao_final estiver vazia, usar esse texto
             descricao_livre = (form.cleaned_data.get('descricaoobjeto') or '').strip()
             if not descricao_final and descricao_livre:
                 descricao_final = descricao_livre
 
-            # mapear o form para o dict que será gravado no DB
             data = {
                 'DESCRICAOOBJETO': descricao_final,
                 'DEFEITO': form.cleaned_data.get('defeito') or '',
@@ -174,7 +160,6 @@ def abrir_os(request):
                 'IDUSUARIO': form.cleaned_data.get('idusuario') or 1,
                 'IDOBJETO': idobj,
                 'PLACA': placa or (None if placa == '' else placa),
-                # campos adicionais
                 'NOMECLIENTE': form.cleaned_data.get('nome_cliente') or '',
                 'EMAILCLIENTE': form.cleaned_data.get('email_cliente') or '',
                 'LOCALIZACAOOBJ': form.cleaned_data.get('localizacao') or '',
@@ -190,7 +175,7 @@ def abrir_os(request):
                 'ENTRADA': form.cleaned_data.get('entrada') if form.cleaned_data.get('entrada') not in (None, '') else None,
             }
 
-            # tentar obter metadata e converter strings -> bytes para colunas BLOB
+            # converter strings -> bytes apenas para colunas BLOB
             try:
                 meta = _get_field_metadata(TABLE_OS) or {}
                 data_encoded = {}
@@ -200,8 +185,8 @@ def abrir_os(request):
                     if val is None:
                         data_encoded[col_name] = None
                         continue
-                    # detecta BLOB
-                    if _is_blob_column(entry) and isinstance(val, str):
+                    is_blob = _is_blob_column(entry)
+                    if is_blob and isinstance(val, str):
                         try:
                             data_encoded[col_name] = val.encode(CHARSET)
                         except Exception:
@@ -209,16 +194,13 @@ def abrir_os(request):
                     else:
                         data_encoded[col_name] = val
             except Exception:
-                # se metadata falhar, usa os dados originais (fallback)
                 data_encoded = data
 
-            # inserir no Firebird
             try:
                 new_id = inserir_ordem(TABLE_OS, data_encoded, empresa=EMPRESA_DEFAULT)
             except Exception as e:
-                # reportar erro no form
                 form.add_error(None, f"Erro ao salvar no Firebird: {e}")
-                # tentar também carregar clients para re-renderizar o form com opções
+                # tentar carregar clients para re-renderizar
                 clients = []
                 try:
                     with fb_connect() as con:
@@ -230,12 +212,11 @@ def abrir_os(request):
                 except Exception:
                     clients = []
                 return render(request, 'os_app/abrir_os.html', {'form': form, 'clients': clients})
-            # redireciona para a página de sucesso usando pk (id gerado)
             return redirect(reverse('os_app:sucesso', kwargs={'pk': new_id}))
     else:
         form = OrdemServicoForm()
 
-    # carregar lista de proprietários (clientes) para popular select (se a tabela existir)
+    # carregar lista de proprietários (clientes) para popular select (se existir)
     clients = []
     try:
         with fb_connect() as con:
@@ -255,8 +236,17 @@ def sucesso(request, pk):
     item = obter_ordem(TABLE_OS, EMPRESA_DEFAULT, pk, idcol=IDCOL, empresacol=EMPCOL)
     if not item:
         raise Http404("Ordem não encontrada")
-    # item é um dict (chaves minúsculas) vindo do helper — passamos direto como 'os'
-    return render(request, 'os_app/sucesso.html', {'os': item})
+
+    # pk pronto para uso no template (evita filtros complexos no template)
+    edit_pk = item.get('idordem') or item.get('id')
+
+    # também enviar JSON serializado (para uso por scripts se necessário)
+    try:
+        os_json = json.dumps(item, default=str)
+    except Exception:
+        os_json = '{}'
+
+    return render(request, 'os_app/sucesso.html', {'os': item, 'edit_pk': edit_pk, 'os_json': os_json})
 
 
 def listar_os(request):
@@ -267,7 +257,6 @@ def listar_os(request):
 
 def editar_os(request, pk):
     """Editar OS: GET = preenche form, POST = atualiza no Firebird."""
-    # obter registro atual (item será um dict com chaves minúsculas)
     item = obter_ordem(TABLE_OS, EMPRESA_DEFAULT, pk, idcol=IDCOL, empresacol=EMPCOL)
     if not item:
         raise Http404("Ordem não encontrada")
@@ -275,10 +264,8 @@ def editar_os(request, pk):
     if request.method == 'POST':
         form = OrdemServicoForm(request.POST)
         if form.is_valid():
-            # montar updates apenas com colunas válidas (em maiúsculas para o DB)
             updates = {}
 
-            # campos que permitimos atualizar pelo form
             mapping = {
                 'descricaoobjeto': 'DESCRICAOOBJETO',
                 'defeito': 'DEFEITO',
@@ -297,14 +284,12 @@ def editar_os(request, pk):
                 'pertencentes': 'PERTENCES',
                 'observacoes': 'OBSERVACOES',
                 'entrada': 'ENTRADA',
-                # permitir também atualizar IDOBJETO caso o form tenha esse campo
                 'idobjeto': 'IDOBJETO',
             }
 
             for fkey, colname in mapping.items():
                 if fkey in form.cleaned_data:
                     val = form.cleaned_data.get(fkey)
-                    # evitar inserir '' em campos numéricos ou None problemático
                     if val is not None and (not (isinstance(val, str) and val == '')):
                         updates[colname] = val
 
@@ -312,32 +297,26 @@ def editar_os(request, pk):
                 form.add_error(None, "Nenhum campo para atualizar.")
                 return render(request, 'os_app/editar_os.html', {'form': form, 'os': item})
 
-            # metadata para detectar BLOB subtypes
             meta = _get_field_metadata(TABLE_OS) or {}
 
             set_parts = []
             params = []
             for col_upper, val in ((k.upper(), v) for k, v in updates.items()):
-                # ignore PK / EMPRESA por segurança
                 if col_upper in (IDCOL.upper(), EMPCOL.upper()):
                     continue
 
-                # detectar se coluna é BLOB via metadata
                 entry = meta.get(col_upper, {})
                 is_blob = _is_blob_column(entry)
 
-                # tratar valores conforme tipo
                 if val is None:
                     param_val = None
                 else:
-                    # Se for BLOB e for string -> encode para bytes
                     if is_blob and isinstance(val, str):
                         try:
                             param_val = val.encode(CHARSET)
                         except Exception:
                             param_val = val.encode(CHARSET, errors='replace')
                     else:
-                        # se não for BLOB (ou já é bytes), passa direto
                         param_val = val
 
                 set_parts.append(f"{col_upper} = ?")
@@ -347,12 +326,10 @@ def editar_os(request, pk):
                 form.add_error(None, "Nenhuma coluna válida para atualizar.")
                 return render(request, 'os_app/editar_os.html', {'form': form, 'os': item})
 
-            # ordem dos params: valores..., EMPRESA_DEFAULT, pk
             params.append(EMPRESA_DEFAULT)
             params.append(pk)
             sql = f"UPDATE {TABLE_OS} SET {', '.join(set_parts)} WHERE {EMPCOL} = ? AND {IDCOL} = ?"
 
-            # executar update via fb_connect
             try:
                 with fb_connect() as con:
                     cur = con.cursor()
@@ -369,7 +346,6 @@ def editar_os(request, pk):
                 return render(request, 'os_app/editar_os.html', {'form': form, 'os': item})
 
     else:
-        # inicializar form com valores do registro (chaves do item são minúsculas)
         init = {
             'descricaoobjeto': item.get('descricaoobjeto'),
             'defeito': item.get('defeito'),
@@ -388,7 +364,6 @@ def editar_os(request, pk):
             'pertencentes': item.get('pertences'),
             'observacoes': item.get('observacoes'),
             'entrada': item.get('entrada'),
-            # novo campo idobjeto (se armazenado no registro)
             'idobjeto': item.get('idobjeto') or item.get('id_objeto'),
         }
 
@@ -407,11 +382,9 @@ def editar_os(request, pk):
                     init['marca'] = marca_db
                     init['modelo'] = modelo_db
                     init['cor'] = cor_db
-                    # se PLACA na OS estiver vazia, preencher com a do objeto
                     if not init.get('placa') and placa_db:
                         init['placa'] = placa_db
         except Exception:
-            # se falhar, apenas ignore — não queremos quebrar o formulário de edição
             pass
 
         form = OrdemServicoForm(initial=init)
@@ -426,18 +399,11 @@ def cancelar_os(request, pk):
         raise Http404("Ordem não encontrada")
 
     if request.method == 'POST':
-        sql = f"UPDATE {TABLE_OS} SET SITUACAO = ? WHERE {EMPCOL} = ? AND {IDCOL} = ?"
         try:
-            with fb_connect() as con:
-                cur = con.cursor()
-                cur.execute(sql, ('CANCELADA', EMPRESA_DEFAULT, pk))
-                affected = cur.rowcount
-                con.commit()
-                cur.close()
-            # opcional: você pode querer manter a OS visível no painel, por isso apenas atualizamos SITUACAO
+            # usa helper cancelamento caso queira lógica mais completa
+            cancelar_ordem(TABLE_OS, EMPRESA_DEFAULT, pk, usuario_id=None, motivo=None)
             return redirect('os_app:listar_os')
         except Exception as e:
             return render(request, 'os_app/confirmar_remocao.html', {'os': item, 'error': str(e)})
 
-    # se GET, mostrar a mesma tela de confirmação (reutiliza o template)
     return render(request, 'os_app/confirmar_remocao.html', {'os': item})

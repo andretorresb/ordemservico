@@ -26,7 +26,6 @@ def _get_field_metadata(table):
     return meta
 
 def _next_id_max(table, empresa, idcol='IDORDEM', empresacol='EMPRESA'):
-    """Gera próximo id usando SELECT COALESCE(MAX(id),0)+1 (com filtro por empresa)."""
     t = table.upper()
     idcol_u = idcol.upper()
     empcol_u = empresacol.upper()
@@ -42,8 +41,7 @@ def inserir_ordem(table, data: dict, empresa, idcol='IDORDEM', empresacol='EMPRE
     Insere um registro em `table` usando NEXT ID = SELECT MAX+1.
     - data: dict com chaves nome das colunas (case-insensitive).
     - empresa: valor da coluna EMPRESA (necessário para gerar ID)
-    - retorna: id criado (IdOrdem)
-    Tenta re-gerar e reinserir até max_retries em caso de erro (ex.: PK duplicada).
+    - retorna: id criado
     """
     t = table.upper()
     meta = _get_field_metadata(t)
@@ -52,17 +50,13 @@ def inserir_ordem(table, data: dict, empresa, idcol='IDORDEM', empresacol='EMPRE
     idcol_u = idcol.upper()
     empcol_u = empresacol.upper()
 
-    # garantir empresa presente
     data_up[empcol_u] = empresa
 
-    # montar colunas válidas
     valid_cols_all = [c for c in meta.keys()]
-    # We'll set id dynamically if not provided
+
     if idcol_u in data_up and data_up[idcol_u]:
-        # Se usuário já forneceu ID, usa direto (sem gerar)
         start_ids = [int(data_up[idcol_u])]
     else:
-        # vamos gerar ids dinamicamente nas tentativas
         start_ids = []
 
     attempt = 0
@@ -75,10 +69,8 @@ def inserir_ordem(table, data: dict, empresa, idcol='IDORDEM', empresacol='EMPRE
         else:
             new_id = start_ids[0]
 
-        # assegura valor
         data_up[idcol_u] = new_id
 
-        # montar colunas que realmente existem na tabela e tem valor em data_up
         valid_cols = [c for c in valid_cols_all if c in data_up]
         if not valid_cols:
             raise RuntimeError("Nenhuma coluna válida para inserção.")
@@ -86,17 +78,23 @@ def inserir_ordem(table, data: dict, empresa, idcol='IDORDEM', empresacol='EMPRE
         placeholders = ", ".join(["?"] * len(valid_cols))
         columns_sql = ", ".join(valid_cols)
 
-        # preparar params convertendo strings para bytes quando BLOB binário (subtype 0)
         params = []
         for c in valid_cols:
             val = data_up.get(c)
             field_meta = meta.get(c, {})
-            subtype = field_meta.get('subtype', 0)
-            if subtype == 0 and isinstance(val, str):
+            # detectar BLOB: RDB$FIELD_TYPE == 261 ou presença de 'subtype'
+            is_blob = (field_meta.get('type') == 261) or ('subtype' in field_meta)
+            if val is None:
+                params.append(None)
+                continue
+
+            # Converter strings para bytes apenas se coluna for BLOB/text-blob.
+            if is_blob and isinstance(val, str):
                 try:
                     val = val.encode(CHARSET)
                 except Exception:
                     val = val.encode(CHARSET, errors='replace')
+            # caso coluna não seja blob e val seja bytes, tentar decodificar? melhor não, assume app passa tipos corretos
             params.append(val)
 
         sql = f"INSERT INTO {t} ({columns_sql}) VALUES ({placeholders}) RETURNING {idcol_u}"
@@ -109,24 +107,18 @@ def inserir_ordem(table, data: dict, empresa, idcol='IDORDEM', empresacol='EMPRE
                 cur.close()
                 return row[0] if row and row[0] is not None else new_id
             except Exception as e:
-                # captura exceção e decide retry se for conflito de PK/unique
                 con.rollback()
                 cur.close()
                 last_exception = e
                 errstr = str(e).upper()
-                # heurística: se parecer violação de PK/UNIQUE/CONSTRAINT, tentamos novamente
+                # heurística de retry em conflito de PK
                 if ("UNIQUE" in errstr) or ("CONSTRAINT" in errstr) or ("DUPLICAT" in errstr) or ("VIOLATION" in errstr) or ("-803" in errstr):
-                    # espera um pouco e tenta novo MAX+1
-                    time.sleep(retry_delay)
-                    # limpa o id fornecido para gerar novo na próxima iteração
                     if start_ids:
-                        # se o id veio do usuário, não vamos ficar em loop - abortar
                         break
+                    time.sleep(retry_delay)
                     continue
                 else:
-                    # erro diferente: aborta imediatamente
                     raise
-    # se sair do loop sem sucesso, propaga último erro
     if last_exception:
         raise last_exception
     raise RuntimeError("Falha desconhecida ao inserir registro.")
@@ -150,7 +142,6 @@ def listar_ordens(table, empresa, empresacol='EMPRESA', order_by='ABERTURADATA',
         d = {}
         for i, col in enumerate(cols):
             val = r[i]
-            # decode bytes if necessary
             if isinstance(val, bytes):
                 try:
                     val = val.decode(CHARSET)
@@ -186,39 +177,29 @@ def obter_ordem(table, empresa, idordem, idcol='IDORDEM', empresacol='EMPRESA'):
     return d
 
 # -------------------------
-# Função adicionada: cancelar_ordem (soft-delete)
+# cancelar_ordem (soft-delete)
 # -------------------------
 def cancelar_ordem(table, empresa, idordem, usuario_id=None, motivo=None):
-    """
-    Cancela uma ordem (soft-delete): atualiza SITUACAO='CANCELADA' e campos de encerramento/fechamento
-    e grava usuario/motivo quando possíveis.
-    Retorna: número de linhas afetadas (1 esperado) ou 0 se nada encontrado.
-    Lança RuntimeError se houver erro do banco.
-    """
     t = table.upper()
     meta = _get_field_metadata(t)
-    cols = list(meta.keys())  # colunas existentes em MAIÚSCULAS
+    cols = list(meta.keys())
 
     set_clauses = []
     params = []
 
-    # 1) sempre setar SITUACAO = 'CANCELADA' (se existir)
     if 'SITUACAO' in cols:
         set_clauses.append("SITUACAO = ?")
         params.append('CANCELADA')
 
-    # 2) setar timestamps que existem: ENCERRAMENTO, FECHAMENTO (CURRENT_TIMESTAMP)
     if 'ENCERRAMENTO' in cols:
         set_clauses.append("ENCERRAMENTO = CURRENT_TIMESTAMP")
     if 'FECHAMENTO' in cols:
         set_clauses.append("FECHAMENTO = CURRENT_TIMESTAMP")
 
-    # 3) atualizar IDUSUARIO se solicitado e campo existir
     if usuario_id is not None and 'IDUSUARIO' in cols:
         set_clauses.append("IDUSUARIO = ?")
         params.append(usuario_id)
 
-    # 4) gravar motivo em uma coluna disponível (prefere MOTIVO, OBS, OBSERVACAO, COMPLEMENTO)
     motivo_col_candidates = ['MOTIVO', 'OBS', 'OBSERVACAO', 'COMPLEMENTO', 'HISTORICO']
     motivo_col = None
     for c in motivo_col_candidates:
@@ -240,18 +221,15 @@ def cancelar_ordem(table, empresa, idordem, usuario_id=None, motivo=None):
     if not set_clauses:
         raise RuntimeError("Nenhuma coluna válida para marcar como cancelada nesta tabela.")
 
-    # montar SQL final
     set_sql = ", ".join(set_clauses)
     sql = f"UPDATE {t} SET {set_sql} WHERE EMPRESA = ? AND IDORDEM = ?"
     params.append(empresa)
     params.append(idordem)
 
-    # executar
     with fb_connect() as con:
         cur = con.cursor()
         try:
             cur.execute(sql, tuple(params))
-            # tentar obter número de linhas afetadas (alguns drivers não suportam rowcount)
             affected = None
             try:
                 affected = cur.rowcount

@@ -1,35 +1,50 @@
 // scripts.js - UI + comportamento de objetos (proprietário -> objetos -> detalhes)
-// Regras:
-// - Se o template definir window.OS_API_OBJETOS_POR_PROPRIETARIO e window.OS_API_OBJETO_DETAIL,
-//   o script irá usar essas strings (contendo "/0/" para substituição).
-// - Caso contrário, tenta usar caminhos padrão: /os/api/objetos/por-proprietario/<id>/ e /os/api/objetos/<id>/
-// - Funciona tanto no abrir_os.html quanto no editar_os.html (pré-preenchimento).
+// Versão final que lê URLs de <div id="os-api-urls" data-*> ou de window.* e tem proteção contra double-init.
 (function() {
   'use strict';
+
+  // evita inicializar duas vezes caso o script seja carregado novamente
+  if (window.OS_SCRIPTS_LOADED) return;
+  window.OS_SCRIPTS_LOADED = true;
 
   // ---------- utilitários ----------
   function qs(id) { return document.getElementById(id); }
   function safeText(v) { return (v === null || v === undefined) ? '' : String(v); }
   function replaceZero(urlTemplate, id) {
     if(!urlTemplate) return null;
-    // alguns templates usam "/0/" placeholder — substitui esse bloco
     if(urlTemplate.indexOf('/0/') !== -1) return urlTemplate.replace('/0/', '/' + encodeURIComponent(id) + '/');
-    // se a URL termina com "0/" ou "0", troca também
+    // termina em 0/ ou 0
     return urlTemplate.replace(/0(\/)?$/, encodeURIComponent(id) + '$1');
   }
 
-  // ---------- configuração de endpoints ----------
-  // templates podem definir essas variáveis (recomendado):
-  // window.OS_API_OBJETOS_POR_PROPRIETARIO = "{% url 'os_app:api_objetos_por_proprietario' 0 %}";
-  // window.OS_API_OBJETO_DETAIL = "{% url 'os_app:api_objeto_detail' 0 %}";
-  var API_POR_PROPRIETARIO = window.OS_API_OBJETOS_POR_PROPRIETARIO || '/os/api/objetos/por-proprietario/0/';
-  var API_OBJETO_DETAIL = window.OS_API_OBJETO_DETAIL || '/os/api/objetos/0/';
+  function fetchJson(url) {
+    return fetch(url, { credentials: 'same-origin' }).then(function(resp){
+      if(!resp.ok) throw new Error('HTTP ' + resp.status);
+      return resp.json();
+    });
+  }
 
-  // ---------- comportamento UI existente (mantido) ----------
+  // ---------- obter configuração (div#os-api-urls > data-*) ----------
+  var apiDiv = qs('os-api-urls');
+  var API_POR_PROPRIETARIO = null;
+  var API_OBJETO_DETAIL = null;
+  var INITIAL_OS_IDOBJ = null;
+
+  if(apiDiv) {
+    API_POR_PROPRIETARIO = apiDiv.getAttribute('data-por-proprietario') || apiDiv.dataset.porProprietario || null;
+    API_OBJETO_DETAIL = apiDiv.getAttribute('data-obj-detail') || apiDiv.dataset.objDetail || null;
+    INITIAL_OS_IDOBJ = apiDiv.getAttribute('data-os-id') || apiDiv.dataset.osId || null;
+  }
+
+  // fallback para variáveis globais definidas via template
+  API_POR_PROPRIETARIO = API_POR_PROPRIETARIO || window.OS_API_OBJETOS_POR_PROPRIETARIO || '/os/api/objetos/por-proprietario/0/';
+  API_OBJETO_DETAIL = API_OBJETO_DETAIL || window.OS_API_OBJETO_DETAIL || '/os/api/objetos/0/';
+
+  // ---------- comportamento UI (genéricos) ----------
   document.addEventListener('DOMContentLoaded', function() {
-    // fechar mensagens
+    // fechar mensagens (se houver .message .msg-close)
     document.querySelectorAll('.message .msg-close').forEach(function(btn){
-      btn.addEventListener('click', function(e){
+      btn.addEventListener('click', function(){
         var msg = btn.closest('.message');
         if(!msg) return;
         msg.style.transition = 'opacity 240ms ease, height 240ms ease, margin 240ms ease';
@@ -46,7 +61,7 @@
       inp.style.boxShadow = '0 0 0 4px rgba(217,83,79,0.06)';
     });
 
-    // adicionar confirmação em formulários com class .confirm-delete (se existirem)
+    // confirmação para forms com class .confirm-delete
     document.querySelectorAll('form.confirm-delete').forEach(function(f){
       f.addEventListener('submit', function(ev){
         if(!confirm('Confirma exclusão? Esta ação não pode ser desfeita.')) {
@@ -66,7 +81,7 @@
   function montarDescricaoFromFields(tipoEl, marcaEl, modeloEl, placaEl, descEl){
     var tipo  = tipoEl  && tipoEl.value  ? tipoEl.value.trim()  : '';
     var marca = marcaEl && marcaEl.value ? marcaEl.value.trim() : '';
-    var mod  = modeloEl && modeloEl.value ? modeloEl.value.trim() : '';
+    var mod   = modeloEl && modeloEl.value ? modeloEl.value.trim() : '';
     var placa = placaEl && placaEl.value ? placaEl.value.trim() : '';
     var partes = [];
     if(tipo) partes.push(tipo);
@@ -78,17 +93,8 @@
     return s;
   }
 
-  function fetchJson(url) {
-    return fetch(url, { credentials: 'same-origin' }).then(function(resp){
-      if(!resp.ok) throw new Error('HTTP ' + resp.status);
-      return resp.json();
-    });
-  }
-
-  // popular select de objetos para um proprietario
   function populateObjectsForOwner(proprietarioId, selectEl) {
     if(!selectEl) return;
-    // limpar
     selectEl.innerHTML = '<option value="">(nenhum)</option>';
     if(!proprietarioId) return;
 
@@ -107,7 +113,6 @@
     });
   }
 
-  // preencher campos do objeto a partir do detalhe
   function fillObjectDetail(objectId, tipoEl, marcaEl, modeloEl, corEl, placaEl, descEl){
     if(!objectId) return Promise.resolve(null);
     var url = replaceZero(API_OBJETO_DETAIL, objectId) || API_OBJETO_DETAIL.replace('0', encodeURIComponent(objectId));
@@ -116,7 +121,7 @@
         if(tipoEl) tipoEl.value   = safeText(data.tipo || '');
         if(marcaEl) marcaEl.value = safeText(data.marca || '');
         if(modeloEl) modeloEl.value = safeText(data.modelo || '');
-        if(corEl) corEl.value = safeText(data.cor || '');
+        if(corEl) corEl.value     = safeText(data.cor || '');
         if(placaEl) placaEl.value = safeText(data.placa || '');
         montarDescricaoFromFields(tipoEl, marcaEl, modeloEl, placaEl, descEl);
         return data;
@@ -128,10 +133,10 @@
     });
   }
 
-  // bind automático se elementos existirem no DOM
+  // ---------- auto-bind ao carregar DOM ----------
   document.addEventListener('DOMContentLoaded', function(){
     var proprietarioEl = qs('id_proprietario');
-    var idobjEl = qs('id_idobjeto') || qs('id_idobjeto_hidden') || qs('id_idobjeto_field'); // tentativa de encontrar
+    var idobjEl = qs('id_idobjeto') || qs('id_idobjeto_hidden') || qs('id_idobjeto_field');
     var tipoEl   = qs('id_tipo_objeto') || qs('id_tipo');
     var marcaEl  = qs('id_marca') || qs('id_marcaa') || qs('id_brand');
     var modeloEl = qs('id_modelo') || qs('id_model');
@@ -139,15 +144,13 @@
     var placaEl  = qs('id_placa') || qs('id_plate');
     var descEl   = qs('id_descricaoobjeto') || qs('id_descricao_objeto') || qs('id_descricao');
 
-    // torna descricao readonly se existir
     if(descEl) descEl.readOnly = true;
 
-    // se existir proprietario select -> popular objetos quando mudar
+    // proprietario -> popula objetos
     if(proprietarioEl && idobjEl){
       proprietarioEl.addEventListener('change', function(){
         populateObjectsForOwner(this.value, idobjEl);
       });
-      // se houver valor inicial no proprietario, já popula
       if(proprietarioEl.value){
         populateObjectsForOwner(proprietarioEl.value, idobjEl);
       }
@@ -170,35 +173,41 @@
       });
     }
 
-    // se já existir valor em idobj (ex.: edição), preencher
+    // detectar id inicial do objeto (edição)
     var initialId = (idobjEl && idobjEl.value) ? idobjEl.value : null;
     if(!initialId){
-      // tentar pegar via variável no template (se definida)
-      // templates antigos colocavam "{{ os.idobjeto }}" em JS; tentar buscar elemento hidden com that value
-      var hiddenCandidate = document.querySelector('input[name="idobjeto"], input#idobjeto');
-      if(hiddenCandidate && hiddenCandidate.value) initialId = hiddenCandidate.value;
+      // 1) tentar a data no div#os-api-urls
+      if(INITIAL_OS_IDOBJ) initialId = INITIAL_OS_IDOBJ;
+      // 2) tentar campo hidden input[name="idobjeto"]
+      if(!initialId){
+        var hiddenCandidate = document.querySelector('input[name="idobjeto"], input#idobjeto, input[name="id_objeto"]');
+        if(hiddenCandidate && hiddenCandidate.value) initialId = hiddenCandidate.value;
+      }
     }
+
     if(initialId){
       fillObjectDetail(initialId, tipoEl, marcaEl, modeloEl, corEl, placaEl, descEl);
-      // marcar select se existir
       if(idobjEl) try { idobjEl.value = initialId; } catch(e){}
     } else {
-      // montar descricao com campos já preenchidos manualmente
+      // monta descricao a partir de campos já preenchidos manualmente
       if(tipoEl || marcaEl || modeloEl || placaEl) montarDescricaoFromFields(tipoEl, marcaEl, modeloEl, placaEl, descEl);
     }
 
-    // quando usuário digitar em campos do objeto, re-montar descricao
+    // re montar descrição ao editar campos
     [tipoEl, marcaEl, modeloEl, placaEl].forEach(function(el){
       if(!el) return;
       el.addEventListener('input', function(){ montarDescricaoFromFields(tipoEl, marcaEl, modeloEl, placaEl, descEl); });
     });
   });
 
-  // expor funções úteis para debug/uso manual (opcional)
-  window.OSUtils = {
-    montarDescricao: montarDescricaoFromFields,
-    populateObjectsForOwner: populateObjectsForOwner,
-    fillObjectDetail: fillObjectDetail
-  };
+  // expor utilitários
+  window.OSUtils = window.OSUtils || {};
+  window.OSUtils.montarDescricao = montarDescricaoFromFields;
+  window.OSUtils.populateObjectsForOwner = populateObjectsForOwner;
+  window.OSUtils.fillObjectDetail = fillObjectDetail;
+
+  // deixa também as URLs publicamente acessíveis se alguém quiser sobrescrever
+  window.OS_API_OBJETOS_POR_PROPRIETARIO = window.OS_API_OBJETOS_POR_PROPRIETARIO || API_POR_PROPRIETARIO;
+  window.OS_API_OBJETO_DETAIL = window.OS_API_OBJETO_DETAIL || API_OBJETO_DETAIL;
 
 })();

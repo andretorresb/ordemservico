@@ -1,5 +1,12 @@
+{# os_app/templates/os_app/editar_os.html #}
 {% extends "base.html" %}
 {% block content %}
+
+  {# div com endpoints para o scripts.js ler (placeholder /0/ para substituição) #}
+  <div id="os-api-urls"
+       data-por-proprietario="{% url 'os_app:api_objetos_por_proprietario' 0 %}"
+       data-obj-detail="{% url 'os_app:api_objeto_detail' 0 %}"></div>
+
   <h2 class="h5 mb-3">Editar OS #
     {% if os.idordem %}{{ os.idordem }}{% elif os.id %}{{ os.id }}{% else %}-{% endif %}
   </h2>
@@ -26,7 +33,6 @@
       </div>
 
       {# --- Campos do objeto / vínculo com objeto cadastrado --- #}
-      {# Mantemos o campo idobjeto (se existir no form) escondido, para ser enviado ao POST #}
       <div class="d-none">
         {% if form.idobjeto %}{{ form.idobjeto }}{% endif %}
       </div>
@@ -127,9 +133,10 @@
   {# ------------------ JS: preencher campos do objeto quando editar ------------------ #}
   <script>
     (function(){
-      // endpoints com placeholder 0 (será substituído)
-      const apiObjetoDetail = "{% url 'os_app:api_objeto_detail' 0 %}";
-      const apiPorProprietario = "{% url 'os_app:api_objetos_por_proprietario' 0 %}";
+      // ler endpoints do div #os-api-urls (se presente) ou usar fallback com placeholder /0/
+      var urlsEl = document.getElementById('os-api-urls');
+      var apiObjetoDetail = urlsEl ? urlsEl.getAttribute('data-obj-detail')  : "{% url 'os_app:api_objeto_detail' 0 %}";
+      var apiPorProprietario = urlsEl ? urlsEl.getAttribute('data-por-proprietario') : "{% url 'os_app:api_objetos_por_proprietario' 0 %}";
 
       function qs(id){ return document.getElementById(id); }
 
@@ -140,9 +147,8 @@
       const modeloEl = qs('id_modelo') || qs('id_modelo');
       const placaEl = qs('id_placa') || qs('id_placa');
       const descEl = qs('id_descricaoobjeto');
-      const proprietarioSelect = qs('id_proprietario'); // pode não existir no contexto de edição
+      const proprietarioSelect = qs('id_proprietario');
 
-      // tornar descricao readonly para evitar edição manual (mas ainda enviada no POST)
       if(descEl) descEl.readOnly = true;
 
       function montarDescricao(){
@@ -159,36 +165,33 @@
         if(descEl) descEl.value = s;
       }
 
-      // preencher campos a partir do detalhe do objeto via API
-      function preencherPorObjeto(id){
-        if(!id) return;
-        const url = apiObjetoDetail.replace('/0/', '/' + encodeURIComponent(id) + '/');
-        fetch(url)
-          .then(r => r.json())
-          .then(data => {
-            if(!data || data.error) return;
-            if(tipoEl) tipoEl.value = data.tipo || '';
-            if(marcaEl) marcaEl.value = data.marca || '';
-            if(modeloEl) modeloEl.value = data.modelo || '';
-            if(placaEl) placaEl.value = data.placa || '';
-            montarDescricao();
-          })
-          .catch(err => console.error('Erro ao obter detalhe do objeto:', err));
+      function replaceZero(urlTemplate, id){
+        if(!urlTemplate) return null;
+        if(urlTemplate.indexOf('/0/') !== -1) return urlTemplate.replace('/0/', '/' + encodeURIComponent(id) + '/');
+        return urlTemplate.replace(/0(\/)?$/, encodeURIComponent(id) + '$1');
       }
 
-      // caso o form contenha idobjeto preenchido (valor inicial), preencher ao carregar
+      function preencherPorObjeto(id){
+        if(!id) return;
+        var url = replaceZero(apiObjetoDetail, id) || apiObjetoDetail;
+        fetch(url).then(r => r.json()).then(data => {
+          if(!data || data.error) return;
+          if(tipoEl) tipoEl.value = data.tipo || '';
+          if(marcaEl) marcaEl.value = data.marca || '';
+          if(modeloEl) modeloEl.value = data.modelo || '';
+          if(placaEl) placaEl.value = data.placa || '';
+          montarDescricao();
+        }).catch(err => console.error('Erro ao obter detalhe do objeto:', err));
+      }
+
       document.addEventListener('DOMContentLoaded', function(){
-        // 1) se existirem selects de proprietario + objeto (como no abrir_os), mantemos compatibilidade:
         if(proprietarioSelect){
-          // se existir, ao mudar proprietario vamos popular select de objetos (se houver id_idobjeto)
           proprietarioSelect.addEventListener('change', function(){
             const cid = this.value;
             const objetosSelect = qs('id_idobjeto');
-            if(objetosSelect) {
-              objetosSelect.innerHTML = '<option value="">(nenhum)</option>';
-            }
+            if(objetosSelect) objetosSelect.innerHTML = '<option value="">(nenhum)</option>';
             if(!cid) return;
-            const url = apiPorProprietario.replace('/0/', '/' + encodeURIComponent(cid) + '/');
+            var url = replaceZero(apiPorProprietario, cid) || apiPorProprietario;
             fetch(url).then(r => r.json()).then(data => {
               if(data && data.objects && objetosSelect){
                 data.objects.forEach(o => {
@@ -204,10 +207,8 @@
           // se existir select de objetos e já houver um value inicial no form (idobjeto), marcar opção e preencher
           const objetosSelectInit = qs('id_idobjeto');
           try {
-            // pega o id do objeto vindo de 'os' (preferível) ou string vazia
             const existing = "{{ os.idobjeto|default:''|escapejs }}";
             if(objetosSelectInit && existing){
-              // adicionar opção inicial com o id (para o caso em que o select não foi povoado)
               const opt = document.createElement('option');
               opt.value = existing;
               opt.text = 'Carregando...';
@@ -218,26 +219,21 @@
           } catch(e){}
         }
 
-        // 2) se não houver select de proprietario (edição simples), mas existir idobjeto em 'os', preencher direto:
         try {
           const osIdObj = "{{ os.idobjeto|default:''|escapejs }}";
-          // prioriza o value do campo do form (se o widget colocou o valor)
           let idFromField = '';
           if(idObjField && idObjField.value) idFromField = idObjField.value;
           const finalId = idFromField || osIdObj;
           if(finalId){
             preencherPorObjeto(finalId);
-            // também garantir que o hidden/input idobjeto tenha esse valor
             if(idObjField && !idObjField.value) idObjField.value = finalId;
           } else {
-            // sem idobj -> montar descricao com os valores já existentes (se houver)
             montarDescricao();
           }
         } catch(e){
           montarDescricao();
         }
 
-        // 3) ao editar manualmente campos do objeto, sempre re-montar descricao
         [tipoEl, marcaEl, modeloEl, placaEl].forEach(function(el){
           if(!el) return;
           el.addEventListener('input', montarDescricao);
